@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# IDE
+.cursor/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test app build
+test-app/.next/
+test-app/node_modules/
+
+# Lock files (optional - remove if you want to track)
+# package-lock.json

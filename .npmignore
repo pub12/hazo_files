@@ -1,0 +1,35 @@
+# Ignore test app from npm publish
+test-app/
+
+# Ignore source files (use dist)
+src/
+
+# Ignore development files
+*.test.ts
+*.spec.ts
+__tests__/
+coverage/
+.env*
+!.env.example
+
+# Ignore config files
+tsconfig.json
+tsup.config.ts
+.eslintrc*
+.prettierrc*
+vitest.config.ts
+
+# Ignore git files
+.git/
+.gitignore
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore misc
+node_modules/
+*.log
+.DS_Store

@@ -1,0 +1,83 @@
+{
+  "name": "hazo_files",
+  "version": "1.0.0",
+  "description": "File management including integration to cloud files",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./ui": {
+      "types": "./dist/ui/index.d.ts",
+      "import": "./dist/ui/index.mjs",
+      "require": "./dist/ui/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "dev:test-app": "npm run build && cd test-app && npm run dev",
+    "build:test-app": "npm run build && cd test-app && npm run build",
+    "install:test-app": "cd test-app && npm install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pub12/hazo_files.git"
+  },
+  "keywords": [
+    "file",
+    "management",
+    "google-drive",
+    "local-storage",
+    "file-browser"
+  ],
+  "author": "Pubs Abayasiri",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pub12/hazo_files/issues"
+  },
+  "homepage": "https://github.com/pub12/hazo_files#readme",
+  "dependencies": {
+    "googleapis": "^140.0.1",
+    "ini": "^4.1.3"
+  },
+  "devDependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@types/ini": "^4.1.1",
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.15"
+  },
+  "peerDependencies": {
+    "@dnd-kit/core": "^6.0.0",
+    "@dnd-kit/sortable": "^8.0.0",
+    "@dnd-kit/utilities": "^3.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@dnd-kit/core": {
+      "optional": true
+    },
+    "@dnd-kit/sortable": {
+      "optional": true
+    },
+    "@dnd-kit/utilities": {
+      "optional": true
+    }
+  }
+}
