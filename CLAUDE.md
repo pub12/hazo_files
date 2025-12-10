@@ -129,12 +129,12 @@ if (result.success) {
 4. Defaults
 
 **Environment Variable Mapping**:
-- `GOOGLE_DRIVE_CLIENT_ID` → `google_drive.clientId`
-- `GOOGLE_DRIVE_CLIENT_SECRET` → `google_drive.clientSecret`
-- `GOOGLE_DRIVE_REDIRECT_URI` → `google_drive.redirectUri`
-- `GOOGLE_DRIVE_REFRESH_TOKEN` → `google_drive.refreshToken`
-- `GOOGLE_DRIVE_ACCESS_TOKEN` → `google_drive.accessToken`
-- `GOOGLE_DRIVE_ROOT_FOLDER_ID` → `google_drive.rootFolderId`
+- `HAZO_GOOGLE_DRIVE_CLIENT_ID` → `google_drive.clientId`
+- `HAZO_GOOGLE_DRIVE_CLIENT_SECRET` → `google_drive.clientSecret`
+- `HAZO_GOOGLE_DRIVE_REDIRECT_URI` → `google_drive.redirectUri`
+- `HAZO_GOOGLE_DRIVE_REFRESH_TOKEN` → `google_drive.refreshToken`
+- `HAZO_GOOGLE_DRIVE_ACCESS_TOKEN` → `google_drive.accessToken`
+- `HAZO_GOOGLE_DRIVE_ROOT_FOLDER_ID` → `google_drive.rootFolderId`
 
 **Config Loading**:
 ```typescript

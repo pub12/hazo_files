@@ -19,9 +19,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/google-drive?error=no_code', request.url));
   }
 
-  const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_DRIVE_REDIRECT_URI || 'http://localhost:3000/api/auth/google/callback';
+  const clientId = process.env.HAZO_GOOGLE_DRIVE_CLIENT_ID;
+  const clientSecret = process.env.HAZO_GOOGLE_DRIVE_CLIENT_SECRET;
+  const redirectUri = process.env.HAZO_GOOGLE_DRIVE_REDIRECT_URI || 'http://localhost:3000/api/auth/google/callback';
 
   if (!clientId || !clientSecret) {
     return NextResponse.redirect(new URL('/google-drive?error=not_configured', request.url));

@@ -45,11 +45,11 @@ export async function getFileManager(provider: 'local' | 'google_drive' = 'local
       basePath: process.env.LOCAL_STORAGE_BASE_PATH || './files',
     },
     google_drive: {
-      clientId: process.env.GOOGLE_DRIVE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_DRIVE_CLIENT_SECRET || '',
-      redirectUri: process.env.GOOGLE_DRIVE_REDIRECT_URI || '',
+      clientId: process.env.HAZO_GOOGLE_DRIVE_CLIENT_ID || '',
+      clientSecret: process.env.HAZO_GOOGLE_DRIVE_CLIENT_SECRET || '',
+      redirectUri: process.env.HAZO_GOOGLE_DRIVE_REDIRECT_URI || '',
       // Use refresh token from cookie, or fall back to env var
-      refreshToken: googleTokens?.refreshToken || process.env.GOOGLE_DRIVE_REFRESH_TOKEN,
+      refreshToken: googleTokens?.refreshToken || process.env.HAZO_GOOGLE_DRIVE_REFRESH_TOKEN,
       // Pass the access token if available
       accessToken: googleTokens?.accessToken,
     },

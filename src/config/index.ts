@@ -38,12 +38,12 @@ export function parseConfig(configContent: string): HazoFilesConfig {
   // Parse Google Drive config
   if (parsed.google_drive) {
     config.google_drive = {
-      clientId: parsed.google_drive.client_id || process.env.GOOGLE_DRIVE_CLIENT_ID || '',
-      clientSecret: parsed.google_drive.client_secret || process.env.GOOGLE_DRIVE_CLIENT_SECRET || '',
-      redirectUri: parsed.google_drive.redirect_uri || process.env.GOOGLE_DRIVE_REDIRECT_URI || '',
-      refreshToken: parsed.google_drive.refresh_token || process.env.GOOGLE_DRIVE_REFRESH_TOKEN,
-      accessToken: parsed.google_drive.access_token || process.env.GOOGLE_DRIVE_ACCESS_TOKEN,
-      rootFolderId: parsed.google_drive.root_folder_id || process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID,
+      clientId: parsed.google_drive.client_id || process.env.HAZO_GOOGLE_DRIVE_CLIENT_ID || '',
+      clientSecret: parsed.google_drive.client_secret || process.env.HAZO_GOOGLE_DRIVE_CLIENT_SECRET || '',
+      redirectUri: parsed.google_drive.redirect_uri || process.env.HAZO_GOOGLE_DRIVE_REDIRECT_URI || '',
+      refreshToken: parsed.google_drive.refresh_token || process.env.HAZO_GOOGLE_DRIVE_REFRESH_TOKEN,
+      accessToken: parsed.google_drive.access_token || process.env.HAZO_GOOGLE_DRIVE_ACCESS_TOKEN,
+      rootFolderId: parsed.google_drive.root_folder_id || process.env.HAZO_GOOGLE_DRIVE_ROOT_FOLDER_ID,
     };
   }
 
@@ -117,7 +117,7 @@ max_file_size = 0
 [google_drive]
 ; Google Drive OAuth credentials
 ; These can also be set via environment variables:
-; GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, etc.
+; HAZO_GOOGLE_DRIVE_CLIENT_ID, HAZO_GOOGLE_DRIVE_CLIENT_SECRET, etc.
 client_id =
 client_secret =
 redirect_uri = http://localhost:3000/api/auth/callback/google

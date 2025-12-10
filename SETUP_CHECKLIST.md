@@ -651,9 +651,9 @@ Step-by-step guide to get hazo_files up and running in your project. Check off e
 
 - [ ] Create `.env.local` file:
   ```bash
-  GOOGLE_DRIVE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-  GOOGLE_DRIVE_CLIENT_SECRET=GOCSPX-xxxxx
-  GOOGLE_DRIVE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
+  HAZO_GOOGLE_DRIVE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+  HAZO_GOOGLE_DRIVE_CLIENT_SECRET=GOCSPX-xxxxx
+  HAZO_GOOGLE_DRIVE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
   ```
 
 - [ ] Update `hazo_files_config.ini`:
@@ -759,9 +759,9 @@ Step-by-step guide to get hazo_files up and running in your project. Check off e
       config: {
         provider: 'google_drive',
         google_drive: {
-          clientId: process.env.GOOGLE_DRIVE_CLIENT_ID!,
-          clientSecret: process.env.GOOGLE_DRIVE_CLIENT_SECRET!,
-          redirectUri: process.env.GOOGLE_DRIVE_REDIRECT_URI!,
+          clientId: process.env.HAZO_GOOGLE_DRIVE_CLIENT_ID!,
+          clientSecret: process.env.HAZO_GOOGLE_DRIVE_CLIENT_SECRET!,
+          redirectUri: process.env.HAZO_GOOGLE_DRIVE_REDIRECT_URI!,
         }
       }
     });
@@ -791,9 +791,9 @@ Step-by-step guide to get hazo_files up and running in your project. Check off e
       config: {
         provider: 'google_drive',
         google_drive: {
-          clientId: process.env.GOOGLE_DRIVE_CLIENT_ID!,
-          clientSecret: process.env.GOOGLE_DRIVE_CLIENT_SECRET!,
-          redirectUri: process.env.GOOGLE_DRIVE_REDIRECT_URI!,
+          clientId: process.env.HAZO_GOOGLE_DRIVE_CLIENT_ID!,
+          clientSecret: process.env.HAZO_GOOGLE_DRIVE_CLIENT_SECRET!,
+          redirectUri: process.env.HAZO_GOOGLE_DRIVE_REDIRECT_URI!,
         }
       }
     });

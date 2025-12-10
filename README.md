@@ -157,9 +157,9 @@ function MyFileBrowser() {
 Create `.env.local`:
 
 ```env
-GOOGLE_DRIVE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-GOOGLE_DRIVE_CLIENT_SECRET=your-client-secret
-GOOGLE_DRIVE_REDIRECT_URI=http://localhost:3000/api/auth/callback/google
+HAZO_GOOGLE_DRIVE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+HAZO_GOOGLE_DRIVE_CLIENT_SECRET=your-client-secret
+HAZO_GOOGLE_DRIVE_REDIRECT_URI=http://localhost:3000/api/auth/callback/google
 ```
 
 #### 3. Configure hazo_files
@@ -187,9 +187,9 @@ const fileManager = createFileManager({
   config: {
     provider: 'google_drive',
     google_drive: {
-      clientId: process.env.GOOGLE_DRIVE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_DRIVE_CLIENT_SECRET!,
-      redirectUri: process.env.GOOGLE_DRIVE_REDIRECT_URI!,
+      clientId: process.env.HAZO_GOOGLE_DRIVE_CLIENT_ID!,
+      clientSecret: process.env.HAZO_GOOGLE_DRIVE_CLIENT_SECRET!,
+      redirectUri: process.env.HAZO_GOOGLE_DRIVE_REDIRECT_URI!,
     }
   }
 });
@@ -444,12 +444,12 @@ date_formats = YYYY,YY,MM,M,DD,D,MMM,MMMM,YYYY-MM-DD,YYYY-MMM-DD,DD-MM-YYYY,MM-D
 
 The following environment variables can override configuration file values:
 
-- `GOOGLE_DRIVE_CLIENT_ID`
-- `GOOGLE_DRIVE_CLIENT_SECRET`
-- `GOOGLE_DRIVE_REDIRECT_URI`
-- `GOOGLE_DRIVE_REFRESH_TOKEN`
-- `GOOGLE_DRIVE_ACCESS_TOKEN`
-- `GOOGLE_DRIVE_ROOT_FOLDER_ID`
+- `HAZO_GOOGLE_DRIVE_CLIENT_ID`
+- `HAZO_GOOGLE_DRIVE_CLIENT_SECRET`
+- `HAZO_GOOGLE_DRIVE_REDIRECT_URI`
+- `HAZO_GOOGLE_DRIVE_REFRESH_TOKEN`
+- `HAZO_GOOGLE_DRIVE_ACCESS_TOKEN`
+- `HAZO_GOOGLE_DRIVE_ROOT_FOLDER_ID`
 
 ### Configuration via Code
 

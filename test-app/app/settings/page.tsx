@@ -53,13 +53,13 @@ export default function SettingsPage() {
           <div>
             <label className="text-sm font-medium">Client ID</label>
             <p className="text-sm text-muted-foreground">
-              Set via <code className="bg-muted px-1 rounded">GOOGLE_DRIVE_CLIENT_ID</code> env variable
+              Set via <code className="bg-muted px-1 rounded">HAZO_GOOGLE_DRIVE_CLIENT_ID</code> env variable
             </p>
           </div>
           <div>
             <label className="text-sm font-medium">Client Secret</label>
             <p className="text-sm text-muted-foreground">
-              Set via <code className="bg-muted px-1 rounded">GOOGLE_DRIVE_CLIENT_SECRET</code> env variable
+              Set via <code className="bg-muted px-1 rounded">HAZO_GOOGLE_DRIVE_CLIENT_SECRET</code> env variable
             </p>
           </div>
           <div>
@@ -99,9 +99,9 @@ redirect_uri = http://localhost:3000/api/auth/google/callback`}
         <div className="bg-muted rounded-lg p-4 mt-4">
           <h3 className="font-medium mb-2">.env.local</h3>
           <pre className="text-xs overflow-x-auto">
-{`GOOGLE_DRIVE_CLIENT_ID=your_client_id
-GOOGLE_DRIVE_CLIENT_SECRET=your_client_secret
-GOOGLE_DRIVE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback`}
+{`HAZO_GOOGLE_DRIVE_CLIENT_ID=your_client_id
+HAZO_GOOGLE_DRIVE_CLIENT_SECRET=your_client_secret
+HAZO_GOOGLE_DRIVE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback`}
           </pre>
         </div>
       </section>
