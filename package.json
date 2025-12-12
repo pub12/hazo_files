@@ -1,6 +1,6 @@
 {
   "name": "hazo_files",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "File management including integration to cloud files",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
