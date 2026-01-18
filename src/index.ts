@@ -8,6 +8,13 @@ export {
   FileManager,
   createFileManager,
   createInitializedFileManager,
+  // Tracked file manager with database support
+  TrackedFileManager,
+  createTrackedFileManager,
+  createInitializedTrackedFileManager,
+  // File metadata service
+  FileMetadataService,
+  createFileMetadataService,
 } from './services';
 
 // Configuration
@@ -143,7 +150,13 @@ export type {
   UseNamingRuleState,
   UseNamingRuleActions,
   UseNamingRuleReturn,
+  // Metadata tracking types
+  FileMetadataRecord,
+  FileMetadataInput,
+  FileMetadataUpdate,
+  DatabaseTrackingConfig,
+  TrackedFileManagerOptions,
 } from './types';
 
-export type { FileManagerOptions } from './services';
+export type { FileManagerOptions, TrackedFileManagerFullOptions, MetadataLogger, CrudServiceLike, FileMetadataServiceOptions } from './services';
 export type { TokenData, AuthCallbacks, GoogleAuthConfig } from './modules';

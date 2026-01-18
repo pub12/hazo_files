@@ -3,8 +3,13 @@
  */
 
 import { cookies } from 'next/headers';
-import { createInitializedFileManager, loadConfig } from 'hazo_files';
-import type { HazoFilesConfig, TokenData } from 'hazo_files';
+import {
+  createInitializedFileManager,
+  createInitializedTrackedFileManager,
+  loadConfig,
+} from 'hazo_files';
+import type { HazoFilesConfig, TokenData, TrackedFileManager } from 'hazo_files';
+import { initializeDatabase, isTrackingEnabled } from '../config/database';
 
 /**
  * Get Google Drive tokens from cookie
@@ -24,6 +29,7 @@ export async function getGoogleTokens(): Promise<TokenData | null> {
 
 /**
  * Get file manager instance for a provider
+ * Uses TrackedFileManager if database tracking is enabled
  * Automatically retrieves Google Drive tokens from cookie
  */
 export async function getFileManager(provider: 'local' | 'google_drive' = 'local') {
@@ -55,5 +61,45 @@ export async function getFileManager(provider: 'local' | 'google_drive' = 'local
     },
   };
 
+  // Check if database tracking is enabled
+  if (isTrackingEnabled()) {
+    try {
+      const crudService = await initializeDatabase();
+      return createInitializedTrackedFileManager({
+        config,
+        crudService,
+        tracking: {
+          enabled: true,
+          tableName: 'hazo_files',
+          trackDownloads: true,
+          logErrors: true,
+        },
+      });
+    } catch (error) {
+      // If database initialization fails, fall back to regular file manager
+      console.warn('[hazo_files] Database tracking initialization failed, using standard FileManager:', error);
+    }
+  }
+
   return createInitializedFileManager({ config });
+}
+
+/**
+ * Get a tracked file manager (throws if tracking is disabled)
+ */
+export async function getTrackedFileManager(
+  provider: 'local' | 'google_drive' = 'local'
+): Promise<TrackedFileManager> {
+  if (!isTrackingEnabled()) {
+    throw new Error('Database tracking is disabled. Set HAZO_FILES_DB_ENABLED=true to enable.');
+  }
+
+  const manager = await getFileManager(provider);
+
+  // Check if it's actually a TrackedFileManager
+  if (!('isTrackingActive' in manager)) {
+    throw new Error('Failed to create TrackedFileManager. Database may not be properly configured.');
+  }
+
+  return manager as TrackedFileManager;
 }

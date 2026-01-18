@@ -13,6 +13,7 @@ import {
   ChevronRight,
   FileText,
   FlaskConical,
+  Database,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,11 @@ const menuItems = [
     title: 'Naming Test',
     icon: FlaskConical,
     href: '/naming-test',
+  },
+  {
+    title: 'File Metadata',
+    icon: Database,
+    href: '/file-metadata',
   },
 ];
 

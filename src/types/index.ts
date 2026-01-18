@@ -191,3 +191,12 @@ export type {
   UseNamingRuleActions,
   UseNamingRuleReturn,
 } from './naming';
+
+// Metadata tracking types
+export type {
+  FileMetadataRecord,
+  FileMetadataInput,
+  FileMetadataUpdate,
+  DatabaseTrackingConfig,
+  TrackedFileManagerOptions,
+} from './metadata';
