@@ -42,9 +42,9 @@ Pattern-based file/folder name generation system.
 
 ### UI Components
 React components for file management and configuration:
-- **File Browser**: FileBrowser, FolderTree, FileList, FilePreview, PathBreadcrumb
+- **File Browser**: FileBrowser, FolderTree, FileList, FilePreview, PathBreadcrumb, DragPreview
 - **Naming Configurator**: NamingRuleConfigurator, VariableList, PatternBuilder, PatternPreview
-- **Dialogs**: Create/rename/delete/upload dialogs
+- **Dialogs**: Create/rename/delete/upload/metadata dialogs
 - **Hooks**: useFileBrowser, useFileOperations, useNamingRule
 
 ## Storage Modules
@@ -319,6 +319,213 @@ NamingRuleConfigurator (DndContext)
 - History operations: O(1) for undo/redo
 - Drag operations: Handled by @dnd-kit (optimized)
 - Preview generation: Runs on every pattern change (debounce recommended for production)
+
+## FileBrowser Drag-and-Drop System
+
+### Architecture
+
+**Design Pattern**: Single top-level DndContext in FileBrowser component
+
+```
+FileBrowser Component
+├── DndContext (top-level)
+│   ├── Sensors: PointerSensor (8px activation distance)
+│   ├── Collision Detection: closestCenter
+│   └── Event Handlers:
+│       ├── onDragStart → Capture dragged item, show preview
+│       ├── onDragOver → Track drop target, validate move
+│       └── onDragEnd → Execute move operation
+│
+├── DragOverlay
+│   └── DragPreview component (shows during drag)
+│
+├── FolderTree
+│   └── TreeNode components
+│       └── useDroppable hook
+│           └── ID: folder-drop-tree-{path}
+│
+└── FileList
+    └── File/Folder items
+        ├── useDraggable hook
+        │   └── ID: file-item-{path}
+        └── useDroppable hook (folders only)
+            └── ID: folder-drop-list-{path}
+```
+
+### ID Naming Convention
+
+**Draggable IDs**:
+- Format: `file-item-{path}`
+- Example: `file-item-/documents/report.pdf`
+- Applied to: All files and folders in FileList
+
+**Droppable IDs**:
+- Tree format: `folder-drop-tree-{path}`
+  - Example: `folder-drop-tree-/documents`
+  - Applied to: Folder nodes in FolderTree sidebar
+- List format: `folder-drop-list-{path}`
+  - Example: `folder-drop-list-/documents`
+  - Applied to: Folders in FileList main view
+
+**Rationale**: Prefix distinguishes between draggable items and drop targets, allowing both to coexist for folder items.
+
+### Drag Operation Flow
+
+```
+User Action → Event Handler → Validation → API Call → UI Update
+
+1. User clicks and drags file/folder
+   ↓
+2. handleDragStart fires
+   - Captures FileSystemItem from active.data.current
+   - Sets draggedItem state
+   - Sets isDragging = true
+   - DragOverlay shows DragPreview
+   ↓
+3. User drags over folders (handleDragOver)
+   - Extracts path from over.id (strip prefix)
+   - Validates with isValidDropTarget()
+   - Sets dropTargetPath if valid
+   - Invalid targets → dropTargetPath = null
+   ↓
+4. User releases (handleDragEnd)
+   - Extracts target path from over.id
+   - Re-validates with isValidDropTarget()
+   - If valid → api.moveItem(sourcePath, targetPath)
+   - Refresh directory list and folder tree
+   - Reset: draggedItem, dropTargetPath, isDragging
+```
+
+### Drop Validation Rules
+
+**Function**: `isValidDropTarget(item: FileSystemItem, targetPath: string): boolean`
+
+**Rules**:
+1. **Self-drop prevention**: `item.path !== targetPath`
+   - Cannot drop item onto itself
+2. **Parent check**: `getParentPath(item.path) !== targetPath`
+   - Cannot drop into current parent (no-op move)
+3. **Descendant check**: `!isChildPath(item.path, targetPath)`
+   - Cannot drop folder into its own subdirectory
+   - Prevents circular references and lost data
+
+**Edge Cases**:
+- File to folder: Always allowed (if not same parent)
+- Folder to folder: Allowed unless descendant relationship
+- Root folder: Can accept drops but cannot be dragged
+
+### Visual Feedback System
+
+**Dragging State**:
+- **Dragged item**: `opacity-50` class applied
+- **Other items**: Normal opacity
+- **Drag preview**: Follows cursor with file/folder icon + name
+
+**Drop Target Highlighting**:
+- **Valid target**:
+  - Border: `ring-2 ring-green-500`
+  - Background: `bg-green-50`
+- **Invalid target**: No highlighting
+- **Applied to**: Folders in both tree and list that match `dropTargetPath`
+
+**DragPreview Component**:
+- Shows file/folder icon (via `getFileIcon`)
+- Displays item name (truncated to 200px)
+- White background with shadow
+- 90% opacity for visual distinction
+
+### State Management
+
+**State Variables**:
+```typescript
+const [draggedItem, setDraggedItem] = useState<FileSystemItem | null>(null);
+const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
+const [isDragging, setIsDragging] = useState(false);
+```
+
+**State Transitions**:
+- **Idle**: `draggedItem=null, dropTargetPath=null, isDragging=false`
+- **Dragging**: `draggedItem=item, isDragging=true`
+- **Over valid target**: `dropTargetPath=path`
+- **Over invalid target**: `dropTargetPath=null`
+- **Drop complete**: Reset all to null/false
+
+### API Integration
+
+**Required Method**:
+```typescript
+interface FileBrowserAPI {
+  moveItem: (sourcePath: string, destinationPath: string)
+    => Promise<OperationResult<FileSystemItem>>;
+}
+```
+
+**Move Operation**:
+- Input: Source item path, destination folder path
+- Backend: Calls `FileManager.moveItem()`
+- Result: Returns moved item with updated path
+- Side effects: Updates both source and destination directories
+
+**Post-Move Actions**:
+1. Refresh current directory list (`loadDirectory(currentPath)`)
+2. Refresh folder tree (`loadTree()`)
+3. Clear selection if moved item was selected
+4. Reset drag state
+
+### Performance Considerations
+
+**Drag Detection**:
+- 8px activation distance prevents accidental drags
+- No performance impact during normal clicking/selecting
+
+**Collision Detection**:
+- `closestCenter` algorithm (moderate performance)
+- Alternative: `closestCorners` or `pointerWithin` for large lists
+
+**Visual Updates**:
+- CSS classes for highlighting (no re-renders)
+- DragOverlay renders outside main tree (isolated updates)
+- Drop target highlighting via prop comparison (fast)
+
+**Optimization Opportunities**:
+- Virtualize file list for 1000+ items
+- Debounce handleDragOver for smoother performance
+- Cache validation results during drag
+
+### Error Handling
+
+**Validation Errors**:
+- Caught before API call (no network request)
+- No error message shown to user (just no-op)
+
+**API Errors**:
+- Caught in try-catch in `handleDragEnd`
+- Passed to `onError` callback
+- Drag state still reset to prevent UI lockup
+
+**Recovery**:
+- All drag operations are non-destructive until drop
+- Failed moves don't affect source or destination
+- UI refreshes to show actual state
+
+### Testing Considerations
+
+**Unit Tests**:
+- Test `isValidDropTarget()` with various scenarios
+- Test ID extraction from droppable IDs
+- Test path manipulation utilities
+
+**Integration Tests**:
+- Drag file to folder in tree
+- Drag file to folder in list
+- Attempt invalid drops (should be no-op)
+- Verify API calls with correct paths
+
+**Edge Cases**:
+- Dragging folder into deeply nested descendant
+- Dragging to root folder
+- Dragging with network failure during move
+- Rapid drag-and-drop operations
 
 ---
 

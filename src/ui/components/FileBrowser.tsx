@@ -15,18 +15,40 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import {
+  DndContext,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverEvent,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from '@dnd-kit/core';
 import type { FileSystemItem, FileItem, FolderItem, TreeNode, OperationResult } from '../../types';
+import { getParentPath, isChildPath, joinPath, getBaseName } from '../../common/path-utils';
 import { PathBreadcrumb } from './PathBreadcrumb';
 import { FolderTree } from './FolderTree';
 import { FileList } from './FileList';
 import { FilePreview } from './FilePreview';
 import { FileActions } from './FileActions';
+import { ContextMenu, type ContextMenuItem } from './ContextMenu';
+import { DragPreview } from './DragPreview';
 import {
   CreateFolderDialog,
   RenameDialog,
   DeleteConfirmDialog,
   UploadDialog,
+  MetadataDialog,
+  type FileMetadata,
 } from './dialogs';
+import {
+  InfoIcon,
+  PencilIcon,
+  DownloadIcon,
+  TrashIcon,
+} from '../icons/FileIcons';
 
 export interface FileBrowserAPI {
   listDirectory: (path: string) => Promise<OperationResult<FileSystemItem[]>>;
@@ -41,6 +63,7 @@ export interface FileBrowserAPI {
   moveItem: (sourcePath: string, destinationPath: string) => Promise<OperationResult<FileSystemItem>>;
   getPreviewUrl?: (path: string) => Promise<string>;
   getFileContent?: (path: string) => Promise<string>;
+  getFileMetadata?: (path: string) => Promise<OperationResult<FileMetadata>>;
 }
 
 export interface FileBrowserProps {
@@ -82,6 +105,29 @@ export function FileBrowser({
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [metadataOpen, setMetadataOpen] = useState(false);
+
+  // Context menu state
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [contextMenuItem, setContextMenuItem] = useState<FileSystemItem | null>(null);
+
+  // Metadata state
+  const [fileMetadata, setFileMetadata] = useState<FileMetadata | null>(null);
+  const [isMetadataLoading, setIsMetadataLoading] = useState(false);
+
+  // Drag-and-drop state
+  const [draggedItem, setDraggedItem] = useState<FileSystemItem | null>(null);
+  const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Configure DnD sensors with activation constraint to prevent accidental drags
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   // Load directory contents
   const loadDirectory = useCallback(async (path: string) => {
@@ -128,6 +174,96 @@ export function FileBrowser({
       await loadTree();
     }
   }, [currentPath, loadDirectory, loadTree, showTree]);
+
+  // Validate if a drop target is valid for the dragged item
+  const isValidDropTarget = useCallback((item: FileSystemItem, targetPath: string): boolean => {
+    // Cannot drop on itself
+    if (item.path === targetPath) return false;
+
+    // Cannot drop into current parent (no-op)
+    if (getParentPath(item.path) === targetPath) return false;
+
+    // Cannot drop a folder into its own descendant
+    if (item.isDirectory && isChildPath(item.path, targetPath)) return false;
+
+    return true;
+  }, []);
+
+  // Handle drag start
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const { active } = event;
+    const data = active.data.current as { item: FileSystemItem } | undefined;
+    if (data?.item) {
+      setDraggedItem(data.item);
+      setIsDragging(true);
+    }
+  }, []);
+
+  // Handle drag over - track current drop target
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const { over } = event;
+    if (!over || !draggedItem) {
+      setDropTargetPath(null);
+      return;
+    }
+
+    const overId = String(over.id);
+
+    // Extract path from droppable ID (format: folder-drop-tree-{path} or folder-drop-list-{path})
+    let targetPath: string | null = null;
+    if (overId.startsWith('folder-drop-tree-')) {
+      targetPath = overId.replace('folder-drop-tree-', '');
+    } else if (overId.startsWith('folder-drop-list-')) {
+      targetPath = overId.replace('folder-drop-list-', '');
+    }
+
+    if (targetPath && isValidDropTarget(draggedItem, targetPath)) {
+      setDropTargetPath(targetPath);
+    } else {
+      setDropTargetPath(null);
+    }
+  }, [draggedItem, isValidDropTarget]);
+
+  // Handle drag end - perform the move operation
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { over } = event;
+    const item = draggedItem;
+
+    // Reset drag state
+    setDraggedItem(null);
+    setDropTargetPath(null);
+    setIsDragging(false);
+
+    if (!over || !item) return;
+
+    const overId = String(over.id);
+
+    // Extract target path from droppable ID
+    let targetPath: string | null = null;
+    if (overId.startsWith('folder-drop-tree-')) {
+      targetPath = overId.replace('folder-drop-tree-', '');
+    } else if (overId.startsWith('folder-drop-list-')) {
+      targetPath = overId.replace('folder-drop-list-', '');
+    }
+
+    if (!targetPath || !isValidDropTarget(item, targetPath)) return;
+
+    // Calculate destination path
+    const itemName = getBaseName(item.path);
+    const destinationPath = joinPath(targetPath, itemName);
+
+    // Perform move operation
+    const result = await api.moveItem(item.path, destinationPath);
+    if (result.success) {
+      // Refresh current directory and tree
+      await loadDirectory(currentPath);
+      if (showTree) {
+        await loadTree();
+      }
+    } else {
+      onError?.(result.error || 'Failed to move item');
+    }
+  }, [draggedItem, isValidDropTarget, api, currentPath, showTree, loadDirectory, loadTree, onError]);
 
   // Selection handlers
   const handleSelect = useCallback((item: FileSystemItem | null) => {
@@ -249,58 +385,169 @@ export function FileBrowser({
     }
   }, [api, selectedItem, loadTree]);
 
+  // Context menu handler
+  const handleContextMenu = useCallback((item: FileSystemItem, event: React.MouseEvent) => {
+    setContextMenuItem(item);
+    setContextMenuPosition({ x: event.clientX, y: event.clientY });
+  }, []);
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenuPosition(null);
+    setContextMenuItem(null);
+  }, []);
+
+  // Metadata dialog handlers
+  const handleViewMetadata = useCallback(async () => {
+    if (!contextMenuItem) return;
+
+    setSelectedItem(contextMenuItem);
+    setMetadataOpen(true);
+    setFileMetadata(null);
+
+    // Fetch metadata if API method is available
+    if (api.getFileMetadata) {
+      setIsMetadataLoading(true);
+      try {
+        const result = await api.getFileMetadata(contextMenuItem.path);
+        if (result.success && result.data) {
+          setFileMetadata(result.data);
+        }
+      } catch (err) {
+        // Silently handle error - basic metadata will still be shown
+      } finally {
+        setIsMetadataLoading(false);
+      }
+    }
+  }, [api, contextMenuItem]);
+
+  // Build context menu items
+  const contextMenuItems: ContextMenuItem[] = contextMenuItem ? [
+    {
+      id: 'metadata',
+      label: 'View Metadata',
+      icon: InfoIcon,
+      onClick: handleViewMetadata,
+    },
+    {
+      id: 'divider1',
+      label: '',
+      divider: true,
+      onClick: () => {},
+    },
+    {
+      id: 'rename',
+      label: 'Rename',
+      icon: PencilIcon,
+      onClick: () => {
+        setSelectedItem(contextMenuItem);
+        setRenameOpen(true);
+      },
+    },
+    {
+      id: 'download',
+      label: 'Download',
+      icon: DownloadIcon,
+      onClick: async () => {
+        if (contextMenuItem.isDirectory) return;
+        const result = await api.downloadFile(contextMenuItem.path);
+        if (result.success && result.data) {
+          const blob = result.data;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = contextMenuItem.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } else {
+          onError?.(result.error || 'Failed to download file');
+        }
+      },
+      disabled: contextMenuItem.isDirectory,
+    },
+    {
+      id: 'divider2',
+      label: '',
+      divider: true,
+      onClick: () => {},
+    },
+    {
+      id: 'delete',
+      label: 'Delete',
+      icon: TrashIcon,
+      danger: true,
+      onClick: () => {
+        setSelectedItem(contextMenuItem);
+        setDeleteOpen(true);
+      },
+    },
+  ] : [];
+
   return (
-    <div className={`flex flex-col h-full bg-white border rounded-lg overflow-hidden ${className}`}>
-      {/* Row 1: Header - Breadcrumb and Actions */}
-      <div className="flex items-center justify-between p-3 border-b bg-gray-50">
-        <PathBreadcrumb
-          currentPath={currentPath}
-          onNavigate={handleNavigate}
-        />
-        <FileActions
-          selectedItem={selectedItem}
-          onCreateFolder={() => setCreateFolderOpen(true)}
-          onUpload={(files) => handleUpload(files)}
-          onDownload={handleDownload}
-          onDelete={() => setDeleteOpen(true)}
-          onRename={() => setRenameOpen(true)}
-          onRefresh={handleRefresh}
-          isLoading={isLoading}
-        />
-      </div>
-
-      {/* Row 2: Main content - Tree and File List */}
-      <div className="flex flex-1 min-h-0">
-        {/* Column 1: Folder Tree */}
-        {showTree && (
-          <div
-            className="border-r overflow-auto"
-            style={{ width: treeWidth, minWidth: treeWidth }}
-          >
-            <FolderTree
-              tree={tree}
-              currentPath={currentPath}
-              onSelect={handleNavigate}
-              onExpand={handleTreeExpand}
-              onToggle={handleTreeToggle}
-              className="p-2"
-            />
-          </div>
-        )}
-
-        {/* Column 2: File List */}
-        <div className="flex-1 min-w-0 overflow-auto">
-          <FileList
-            files={files}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className={`flex flex-col h-full bg-white border rounded-lg overflow-hidden ${className}`}>
+        {/* Row 1: Header - Breadcrumb and Actions */}
+        <div className="flex items-center justify-between p-3 border-b bg-gray-50">
+          <PathBreadcrumb
+            currentPath={currentPath}
+            onNavigate={handleNavigate}
+          />
+          <FileActions
             selectedItem={selectedItem}
+            onCreateFolder={() => setCreateFolderOpen(true)}
+            onUpload={(files) => handleUpload(files)}
+            onDownload={handleDownload}
+            onDelete={() => setDeleteOpen(true)}
+            onRename={() => setRenameOpen(true)}
+            onRefresh={handleRefresh}
             isLoading={isLoading}
-            onSelect={handleSelect}
-            onOpen={handleOpen}
-            viewMode={viewMode}
-            className="h-full"
           />
         </div>
-      </div>
+
+        {/* Row 2: Main content - Tree and File List */}
+        <div className="flex flex-1 min-h-0">
+          {/* Column 1: Folder Tree */}
+          {showTree && (
+            <div
+              className="border-r overflow-auto"
+              style={{ width: treeWidth, minWidth: treeWidth }}
+            >
+              <FolderTree
+                tree={tree}
+                currentPath={currentPath}
+                onSelect={handleNavigate}
+                onExpand={handleTreeExpand}
+                onToggle={handleTreeToggle}
+                isDragging={isDragging}
+                dropTargetPath={dropTargetPath}
+                className="p-2"
+              />
+            </div>
+          )}
+
+          {/* Column 2: File List */}
+          <div className="flex-1 min-w-0 overflow-auto">
+            <FileList
+              files={files}
+              selectedItem={selectedItem}
+              isLoading={isLoading}
+              onSelect={handleSelect}
+              onOpen={handleOpen}
+              onContextMenu={handleContextMenu}
+              viewMode={viewMode}
+              draggedItem={draggedItem}
+              dropTargetPath={dropTargetPath}
+              className="h-full"
+            />
+          </div>
+        </div>
 
       {/* Row 3: Preview */}
       {showPreview && (
@@ -345,7 +592,33 @@ export function FileBrowser({
         onClose={() => setUploadOpen(false)}
         onUpload={handleUpload}
       />
-    </div>
+
+      <MetadataDialog
+        isOpen={metadataOpen}
+        item={selectedItem}
+        metadata={fileMetadata}
+        isLoading={isMetadataLoading}
+        onClose={() => {
+          setMetadataOpen(false);
+          setFileMetadata(null);
+        }}
+      />
+
+      {/* Context Menu */}
+      <ContextMenu
+        items={contextMenuItems}
+        position={contextMenuPosition}
+        onClose={closeContextMenu}
+      />
+      </div>
+
+      {/* Drag overlay for visual feedback */}
+      <DragOverlay>
+        {draggedItem ? (
+          <DragPreview item={draggedItem} />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 

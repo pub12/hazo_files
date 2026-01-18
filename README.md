@@ -480,7 +480,7 @@ The `FileBrowser` is a complete, drop-in file management UI with:
 - File preview (images, text, PDFs)
 - Context menus and actions
 - Upload, download, rename, delete operations
-- Drag-and-drop support (if implemented in API)
+- Drag-and-drop file moving between folders
 
 ```typescript
 import { FileBrowser } from 'hazo_files/ui';
@@ -498,6 +498,38 @@ import { FileBrowser } from 'hazo_files/ui';
   onSelect={(item) => console.log('Selected:', item)}
 />
 ```
+
+#### Drag-and-Drop File Moving
+
+The FileBrowser includes built-in drag-and-drop functionality for moving files and folders:
+
+**Features**:
+- Drag files/folders from the file list
+- Drop onto folders in the sidebar tree or main file list
+- Visual feedback with opacity and colored borders during drag
+- Prevents invalid operations (dropping on self, into current parent, folder into descendant)
+- Shows dragged item preview during drag operation
+
+**How to use**:
+1. Click and hold on any file or folder in the file list
+2. Drag it over a folder in either the tree sidebar or file list
+3. Valid drop targets show a green ring/background
+4. Release to move the item to the new location
+
+**Technical requirements**:
+- Requires `@dnd-kit/core` peer dependency (already included for NamingRuleConfigurator)
+- API must implement `moveItem(sourcePath, destinationPath)` method
+- Automatically validates drop targets to prevent invalid moves
+
+**Visual feedback**:
+- **Dragging**: Item becomes semi-transparent (opacity-50)
+- **Valid drop target**: Green ring (`ring-2 ring-green-500`) and background (`bg-green-50`)
+- **Drag preview**: Shows file/folder icon and name following cursor
+
+**ID patterns used**:
+- File items: `file-item-{path}` (draggable)
+- Folder tree drops: `folder-drop-tree-{path}` (droppable)
+- Folder list drops: `folder-drop-list-{path}` (droppable)
 
 ### Individual Components
 

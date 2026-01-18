@@ -17,8 +17,21 @@
       "require": "./dist/ui/index.js"
     }
   },
+  "files": [
+    "dist",
+    "docs",
+    "hazo_files_config.ini",
+    "README.md",
+    ".env.example"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "sideEffects": false,
   "scripts": {
-    "build": "tsup",
+    "build": "npm run build:main && npm run build:ui",
+    "build:main": "tsup src/index.ts --dts --format cjs,esm --clean",
+    "build:ui": "tsup src/ui/index.ts --outDir dist/ui --dts --format cjs,esm --no-clean --external react --external react-dom --external @dnd-kit/core --external @dnd-kit/sortable --external @dnd-kit/utilities",
     "dev": "tsup --watch",
     "test": "vitest",
     "lint": "eslint src/",

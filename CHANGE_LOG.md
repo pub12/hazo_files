@@ -186,6 +186,90 @@ This is the initial release, no migration required.
 
 ### Added
 
+#### FileBrowser Drag-and-Drop File Moving (2026-01-19)
+
+**Feature**: Native drag-and-drop functionality for moving files and folders within the FileBrowser component.
+
+**User-Facing Features**:
+- Drag files and folders from the file list (grid or list view)
+- Drop onto folders in either the sidebar tree or main file list
+- Visual feedback with opacity and colored borders during drag
+- Real-time validation prevents invalid operations
+- Shows dragged item preview (icon + name) following cursor
+
+**Visual Feedback**:
+- **Dragging**: Dragged item becomes semi-transparent (opacity-50)
+- **Valid drop target**: Green ring border (`ring-2 ring-green-500`) and light green background (`bg-green-50`)
+- **Invalid drop target**: No highlighting (drop is ignored)
+- **Drag preview**: White card with shadow showing file/folder icon and name (max width 200px)
+
+**Drop Validation** (automatic, no user action needed):
+- Prevents dropping item onto itself
+- Prevents dropping into current parent directory (no-op)
+- Prevents dropping folder into its own descendant (circular reference prevention)
+- All other moves are allowed
+
+**Technical Implementation**:
+- Uses `@dnd-kit/core` library (already a peer dependency for NamingRuleConfigurator)
+- Single top-level DndContext in FileBrowser component
+- PointerSensor with 8px activation distance prevents accidental drags
+- `closestCenter` collision detection algorithm
+
+**New Component** (`src/ui/components/DragPreview.tsx`):
+- `DragPreview` - Visual preview component shown during drag
+- Props: `item: FileSystemItem`, `className?: string`
+- Displays file/folder icon and name with styling
+
+**API Integration**:
+- Requires `FileBrowserAPI.moveItem(sourcePath, destinationPath)` method
+- Automatically refreshes directory list and folder tree after successful move
+- Error handling via `onError` callback prop
+
+**ID Patterns Used**:
+- Draggable items: `file-item-{path}` (all files and folders in FileList)
+- Drop targets in tree: `folder-drop-tree-{path}` (folders in FolderTree sidebar)
+- Drop targets in list: `folder-drop-list-{path}` (folders in FileList)
+
+**State Management**:
+- `draggedItem`: Currently dragged FileSystemItem
+- `dropTargetPath`: Path of valid drop target being hovered
+- `isDragging`: Boolean flag for drag in progress
+
+**Files Changed**:
+- `src/ui/components/FileBrowser.tsx` - Added DndContext, drag handlers, state management
+- `src/ui/components/DragPreview.tsx` - New component for drag preview
+- `src/ui/components/FileList.tsx` - Added useDraggable and useDroppable hooks
+- `src/ui/components/FolderTree.tsx` - Added useDroppable hook
+- `src/ui/index.ts` - Export DragPreview component and DragPreviewProps type
+
+**Dependencies**:
+- No new dependencies (uses existing `@dnd-kit/core` peer dependency)
+
+**Design Decisions**:
+
+**Single DndContext Pattern**:
+- **Decision**: Use single top-level DndContext in FileBrowser, not in child components
+- **Rationale**: Nested DndContext blocks drag events from parent handlers (same pattern as NamingRuleConfigurator). Child components use only useDroppable/useDraggable hooks.
+
+**ID Prefix Convention**:
+- **Decision**: Use prefixed IDs (`file-item-`, `folder-drop-tree-`, `folder-drop-list-`)
+- **Rationale**: Allows distinguishing between draggable items and drop targets. Necessary because folders are both draggable and droppable.
+
+**Validation Before API Call**:
+- **Decision**: Validate drop targets twice: during drag (for visual feedback) and before API call
+- **Rationale**: Prevents unnecessary API calls for invalid drops, provides immediate visual feedback
+
+**Performance Optimization**:
+- 8px activation distance prevents accidental drags during normal clicking
+- CSS-based visual feedback (no re-renders)
+- DragOverlay renders outside main component tree (isolated updates)
+
+**Use Cases**:
+- Reorganizing files into folders
+- Moving files between project folders
+- Quick file organization without copy/paste
+- Dragging from file list to sidebar tree for easy navigation
+
 #### Naming Rules Configuration System (2025-12-09)
 
 **Feature**: Comprehensive naming rules system for generating consistent file and folder names.

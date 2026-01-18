@@ -4,6 +4,7 @@
  */
 
 import React, { useCallback } from 'react';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 import type { FileSystemItem, FileItem } from '../../types';
 import { formatBytes } from '../../common/utils';
 import { getFileIcon, LoaderIcon } from '../icons/FileIcons';
@@ -16,6 +17,8 @@ export interface FileListProps {
   onOpen: (item: FileSystemItem) => void;
   onContextMenu?: (item: FileSystemItem, event: React.MouseEvent) => void;
   viewMode?: 'grid' | 'list';
+  draggedItem?: FileSystemItem | null;
+  dropTargetPath?: string | null;
   className?: string;
 }
 
@@ -26,6 +29,8 @@ interface FileItemCardProps {
   onOpen: () => void;
   onContextMenu?: (event: React.MouseEvent) => void;
   viewMode: 'grid' | 'list';
+  isBeingDragged?: boolean;
+  isDropTarget?: boolean;
 }
 
 function FileItemCard({
@@ -35,10 +40,43 @@ function FileItemCard({
   onOpen,
   onContextMenu,
   viewMode,
+  isBeingDragged,
+  isDropTarget,
 }: FileItemCardProps) {
   const Icon = getFileIcon(
     item.isDirectory ? 'folder' : (item as FileItem).mimeType,
     item.isDirectory
+  );
+
+  // Draggable hook - all items can be dragged
+  const {
+    attributes: dragAttributes,
+    listeners: dragListeners,
+    setNodeRef: setDragRef,
+    isDragging: isItemDragging,
+  } = useDraggable({
+    id: `file-item-${item.path}`,
+    data: { item },
+  });
+
+  // Droppable hook - only folders can receive drops
+  const {
+    setNodeRef: setDropRef,
+    isOver,
+  } = useDroppable({
+    id: `folder-drop-list-${item.path}`,
+    disabled: !item.isDirectory,
+  });
+
+  // Combine refs for folders (both draggable and droppable)
+  const combinedRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setDragRef(node);
+      if (item.isDirectory) {
+        setDropRef(node);
+      }
+    },
+    [setDragRef, setDropRef, item.isDirectory]
   );
 
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -57,13 +95,24 @@ function FileItemCard({
     onContextMenu?.(e);
   }, [onSelect, onContextMenu]);
 
+  // Visual states
+  const isThisItemBeingDragged = isItemDragging || isBeingDragged;
+  const isValidDropTarget = item.isDirectory && isDropTarget;
+  const isHovered = isOver && item.isDirectory;
+
   if (viewMode === 'grid') {
     return (
       <div
+        ref={combinedRef}
+        {...dragAttributes}
+        {...dragListeners}
         className={`
           p-3 rounded-lg cursor-pointer transition-all
           hover:bg-gray-100
           ${isSelected ? 'bg-blue-100 ring-2 ring-blue-500' : 'bg-white'}
+          ${isThisItemBeingDragged ? 'opacity-50' : ''}
+          ${isValidDropTarget ? 'ring-2 ring-green-500 bg-green-50' : ''}
+          ${isHovered ? 'bg-green-100' : ''}
         `}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
@@ -90,10 +139,16 @@ function FileItemCard({
   // List view
   return (
     <div
+      ref={combinedRef}
+      {...dragAttributes}
+      {...dragListeners}
       className={`
         flex items-center p-2 rounded cursor-pointer transition-all
         hover:bg-gray-100
         ${isSelected ? 'bg-blue-100' : ''}
+        ${isThisItemBeingDragged ? 'opacity-50' : ''}
+        ${isValidDropTarget ? 'ring-2 ring-green-500 bg-green-50' : ''}
+        ${isHovered ? 'bg-green-100' : ''}
       `}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -128,6 +183,8 @@ export function FileList({
   onOpen,
   onContextMenu,
   viewMode = 'grid',
+  draggedItem = null,
+  dropTargetPath = null,
   className = '',
 }: FileListProps) {
   const handleBackgroundClick = useCallback(() => {
@@ -181,6 +238,8 @@ export function FileList({
             onOpen={() => onOpen(file)}
             onContextMenu={onContextMenu ? (e) => onContextMenu(file, e) : undefined}
             viewMode="grid"
+            isBeingDragged={draggedItem?.path === file.path}
+            isDropTarget={dropTargetPath === file.path}
           />
         ))}
       </div>
@@ -211,6 +270,8 @@ export function FileList({
             onOpen={() => onOpen(file)}
             onContextMenu={onContextMenu ? (e) => onContextMenu(file, e) : undefined}
             viewMode="list"
+            isBeingDragged={draggedItem?.path === file.path}
+            isDropTarget={dropTargetPath === file.path}
           />
         ))}
       </div>

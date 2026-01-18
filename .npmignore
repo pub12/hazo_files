@@ -26,8 +26,15 @@ vitest.config.ts
 # Ignore IDE files
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
+
+# Ignore development documentation
+CLAUDE.md
+SETUP_CHECKLIST.md
+TECHDOC.md
+CHANGE_LOG.md
 
 # Ignore misc
 node_modules/

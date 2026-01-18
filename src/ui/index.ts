@@ -13,12 +13,16 @@ export { FolderTree } from './components/FolderTree';
 export { FileList } from './components/FileList';
 export { FilePreview } from './components/FilePreview';
 export { FileActions } from './components/FileActions';
+export { ContextMenu } from './components/ContextMenu';
+export { DragPreview } from './components/DragPreview';
 
 export type { PathBreadcrumbProps } from './components/PathBreadcrumb';
 export type { FolderTreeProps } from './components/FolderTree';
 export type { FileListProps } from './components/FileList';
 export type { FilePreviewProps } from './components/FilePreview';
 export type { FileActionsProps } from './components/FileActions';
+export type { ContextMenuProps, ContextMenuItem } from './components/ContextMenu';
+export type { DragPreviewProps } from './components/DragPreview';
 
 // Dialogs
 export {
@@ -26,6 +30,7 @@ export {
   RenameDialog,
   DeleteConfirmDialog,
   UploadDialog,
+  MetadataDialog,
 } from './components/dialogs';
 
 export type {
@@ -33,6 +38,8 @@ export type {
   RenameDialogProps,
   DeleteConfirmDialogProps,
   UploadDialogProps,
+  MetadataDialogProps,
+  FileMetadata,
 } from './components/dialogs';
 
 // Hooks

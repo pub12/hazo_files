@@ -250,17 +250,67 @@ setAuthCallbacks({
 - Internal state for current path, files, tree, selection
 - Callbacks trigger on navigation/selection
 - Dialogs managed via boolean flags
+- Drag-and-drop state: `draggedItem`, `dropTargetPath`, `isDragging`
 
 **API Adapter Pattern**:
 ```typescript
 const api: FileBrowserAPI = {
   listDirectory: (path) => fetch(`/api/files?action=list&path=${path}`).then(r => r.json()),
   uploadFile: (file, path) => { /* FormData upload */ },
+  moveItem: (sourcePath, destinationPath) => { /* Move operation */ },
   // ... other methods must return OperationResult
 };
 ```
 
 **Critical**: All API methods must return `OperationResult<T>` format
+
+**Drag-and-Drop Architecture**:
+
+**Design Pattern**: Single top-level DndContext in FileBrowser
+
+```
+FileBrowser (DndContext - TOP LEVEL)
+├── PointerSensor (8px activation distance)
+├── DragOverlay (shows DragPreview during drag)
+├── handleDragStart → setDraggedItem, setIsDragging
+├── handleDragOver → track dropTargetPath, validate drop target
+└── handleDragEnd → perform moveItem operation
+    ├── Extract target path from over.id
+    ├── Validate: isValidDropTarget(item, targetPath)
+    └── Call api.moveItem(sourcePath, destinationPath)
+
+FolderTree (NO DndContext)
+└── TreeNode (useDroppable)
+    └── ID: `folder-drop-tree-{path}`
+
+FileList (NO DndContext)
+└── FileItem/FolderItem
+    ├── useDraggable: `file-item-{path}`
+    └── useDroppable (folders only): `folder-drop-list-{path}`
+```
+
+**ID Patterns**:
+- **Draggable items**: `file-item-{path}` (all files and folders in FileList)
+- **Drop targets in tree**: `folder-drop-tree-{path}` (folders in FolderTree)
+- **Drop targets in list**: `folder-drop-list-{path}` (folders in FileList)
+
+**Drop Validation** (`isValidDropTarget`):
+1. Cannot drop on itself (`item.path === targetPath`)
+2. Cannot drop into current parent (`getParentPath(item.path) === targetPath`)
+3. Cannot drop folder into its descendant (`isChildPath(item.path, targetPath)`)
+
+**Visual Feedback**:
+- **Dragging**: Item opacity-50
+- **Valid drop target**: Green ring (`ring-2 ring-green-500`) and background (`bg-green-50`)
+- **Drag preview**: DragPreview component with icon and name
+
+**Drag Event Flow**:
+1. User starts dragging: `handleDragStart` captures item, sets `isDragging=true`
+2. During drag: `handleDragOver` tracks hover target, validates it
+3. User drops: `handleDragEnd` calls `api.moveItem()`, refreshes directory and tree
+4. State reset: Clear `draggedItem`, `dropTargetPath`, `isDragging`
+
+**Critical Design Decision**: Like NamingRuleConfigurator, FileBrowser uses a single top-level DndContext. FolderTree and FileList use only useDroppable/useDraggable hooks, never nested DndContext. This prevents event blocking.
 
 ### Component Hierarchy
 
@@ -270,12 +320,14 @@ const api: FileBrowserAPI = {
 - `FileList` - Grid or list file display with selection
 - `FilePreview` - Preview pane for images, text, PDFs
 - `FileActions` - Action buttons toolbar
+- `DragPreview` - Visual preview during drag-and-drop operations
 
 **Dialogs**:
 - `CreateFolderDialog` - Folder name input
 - `RenameDialog` - Rename file/folder
 - `DeleteConfirmDialog` - Deletion confirmation
 - `UploadDialog` - File upload interface
+- `MetadataDialog` - Display file metadata
 
 **Hooks**:
 - `useFileBrowser` - Main state management hook
@@ -905,6 +957,7 @@ const fileItem = result.data;
 
 **UI Components**:
 - FileBrowser: `src/ui/components/FileBrowser.tsx`
+- DragPreview: `src/ui/components/DragPreview.tsx`
 - NamingRuleConfigurator: `src/ui/components/naming/NamingRuleConfigurator.tsx`
 - VariableList: `src/ui/components/naming/VariableList.tsx`
 - PatternBuilder: `src/ui/components/naming/PatternBuilder.tsx`

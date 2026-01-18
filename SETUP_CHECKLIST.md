@@ -317,10 +317,12 @@ Step-by-step guide to get hazo_files up and running in your project. Check off e
   npm install tailwindcss @tailwindcss/forms
   ```
 
-- [ ] Install drag-and-drop dependencies (for NamingRuleConfigurator):
+- [ ] Install drag-and-drop dependencies (for NamingRuleConfigurator and FileBrowser drag-and-drop):
   ```bash
   npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
   ```
+
+  **Note**: `@dnd-kit/core` enables drag-and-drop file moving in FileBrowser, while all three packages are required for the NamingRuleConfigurator component.
 
 ### 4.2 Create API Adapter
 
@@ -461,6 +463,7 @@ Step-by-step guide to get hazo_files up and running in your project. Check off e
   - [ ] Rename file/folder
   - [ ] Delete file/folder
   - [ ] View file preview
+  - [ ] Drag and drop files/folders to move them
 
 **Checkpoint**: UI components are fully functional.
 

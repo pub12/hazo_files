@@ -4,6 +4,7 @@
  */
 
 import React, { useCallback } from 'react';
+import { useDroppable } from '@dnd-kit/core';
 import type { TreeNode } from '../../types';
 import {
   FolderIcon,
@@ -19,6 +20,8 @@ export interface FolderTreeProps {
   onSelect: (path: string) => void;
   onExpand: (path: string) => void;
   onToggle: (path: string) => void;
+  isDragging?: boolean;
+  dropTargetPath?: string | null;
   className?: string;
 }
 
@@ -29,6 +32,8 @@ interface TreeNodeItemProps {
   onSelect: (path: string) => void;
   onExpand: (path: string) => void;
   onToggle: (path: string) => void;
+  isDragging?: boolean;
+  dropTargetPath?: string | null;
 }
 
 function TreeNodeItem({
@@ -38,11 +43,21 @@ function TreeNodeItem({
   onSelect,
   onExpand,
   onToggle,
+  isDragging,
+  dropTargetPath,
 }: TreeNodeItemProps) {
   const isSelected = currentPath === node.path;
   const hasChildren = node.children && node.children.length > 0;
   const isExpanded = node.isExpanded;
   const isLoading = node.isLoading;
+
+  // Droppable hook - all tree folders can receive drops
+  const {
+    setNodeRef,
+    isOver,
+  } = useDroppable({
+    id: `folder-drop-tree-${node.path}`,
+  });
 
   const handleToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -57,13 +72,20 @@ function TreeNodeItem({
     onSelect(node.path);
   }, [node.path, onSelect]);
 
+  // Visual states
+  const isDropTarget = dropTargetPath === node.path;
+  const isHovered = isOver;
+
   return (
     <div>
       <div
+        ref={setNodeRef}
         className={`
           flex items-center py-1 px-2 cursor-pointer rounded
           hover:bg-gray-100 transition-colors
           ${isSelected ? 'bg-blue-100 text-blue-700' : 'text-gray-700'}
+          ${isDropTarget ? 'ring-2 ring-green-500 bg-green-50' : ''}
+          ${isHovered && isDragging ? 'bg-green-100' : ''}
         `}
         style={{ paddingLeft: `${level * 16 + 8}px` }}
         onClick={handleSelect}
@@ -110,6 +132,8 @@ function TreeNodeItem({
               onSelect={onSelect}
               onExpand={onExpand}
               onToggle={onToggle}
+              isDragging={isDragging}
+              dropTargetPath={dropTargetPath}
             />
           ))}
         </div>
@@ -124,6 +148,8 @@ export function FolderTree({
   onSelect,
   onExpand,
   onToggle,
+  isDragging = false,
+  dropTargetPath = null,
   className = '',
 }: FolderTreeProps) {
   // Add root node
@@ -144,6 +170,8 @@ export function FolderTree({
         onSelect={onSelect}
         onExpand={onExpand}
         onToggle={onToggle}
+        isDragging={isDragging}
+        dropTargetPath={dropTargetPath}
       />
     </div>
   );

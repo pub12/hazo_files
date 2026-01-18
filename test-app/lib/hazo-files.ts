@@ -111,5 +111,10 @@ export function createFileBrowserAPI(provider: 'local' | 'google_drive' = 'local
       }
       throw new Error(data.error);
     },
+
+    async getFileMetadata(path: string) {
+      const response = await fetch(`${baseUrl}/metadata?path=${encodeURIComponent(path)}&provider=${provider}`);
+      return response.json();
+    },
   };
 }
