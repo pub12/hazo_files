@@ -541,11 +541,57 @@ import {
   FolderTree,
   FileList,
   FilePreview,
-  FileActions
+  FileActions,
+  FileInfoPanel
 } from 'hazo_files/ui';
 
 // Use individually with your own layout
 ```
+
+### FileInfoPanel Component
+
+The `FileInfoPanel` displays file metadata in a structured format and can be used standalone in sidebars, custom dialogs, or inline panels:
+
+```typescript
+import { FileInfoPanel } from 'hazo_files/ui';
+
+// In a sidebar
+function Sidebar({ selectedFile, metadata, isLoading }) {
+  return (
+    <div className="sidebar p-4">
+      <h3 className="font-bold mb-4">File Info</h3>
+      <FileInfoPanel
+        item={selectedFile}
+        metadata={metadata}
+        isLoading={isLoading}
+      />
+    </div>
+  );
+}
+
+// Without custom metadata section
+<FileInfoPanel
+  item={file}
+  showCustomMetadata={false}
+  className="bg-gray-50 rounded-lg p-4"
+/>
+
+// In a custom dialog
+function MyCustomDialog({ file }) {
+  return (
+    <dialog>
+      <FileInfoPanel item={file} showCustomMetadata={false} />
+    </dialog>
+  );
+}
+```
+
+**Props:**
+- `item: FileSystemItem | null` - The file or folder to display info for
+- `metadata?: FileMetadata | null` - Additional metadata from database
+- `isLoading?: boolean` - Show loading state for custom metadata
+- `showCustomMetadata?: boolean` - Whether to show the JSON metadata section (default: true)
+- `className?: string` - Additional CSS classes for custom styling
 
 ### Hooks
 

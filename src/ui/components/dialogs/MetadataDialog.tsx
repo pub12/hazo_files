@@ -1,27 +1,16 @@
 /**
  * MetadataDialog Component
  * Dialog showing file metadata including database file_data JSON
+ * Uses FileInfoPanel for the content display.
  */
 
-import type { FileSystemItem, FileItem } from '../../../types';
-import { XIcon, InfoIcon, LoaderIcon } from '../../icons/FileIcons';
-import { formatBytes } from '../../../common/utils';
+import type { FileSystemItem } from '../../../types';
+import { XIcon, InfoIcon } from '../../icons/FileIcons';
+import { FileInfoPanel } from '../FileInfoPanel';
+import type { FileMetadata } from '../FileInfoPanel';
 
-/**
- * Extended metadata including database record data
- */
-export interface FileMetadata {
-  id: string;
-  name: string;
-  path: string;
-  size?: number;
-  mimeType?: string;
-  createdAt: Date;
-  modifiedAt: Date;
-  isDirectory: boolean;
-  file_data?: Record<string, unknown>;
-  storage_type?: string;
-}
+// Re-export FileMetadata type for backward compatibility
+export type { FileMetadata } from '../FileInfoPanel';
 
 export interface MetadataDialogProps {
   isOpen: boolean;
@@ -31,19 +20,6 @@ export interface MetadataDialogProps {
   onClose: () => void;
 }
 
-function formatDate(date: Date | string | undefined): string {
-  if (!date) return '-';
-  const d = date instanceof Date ? date : new Date(date);
-  return d.toLocaleString();
-}
-
-function formatJSON(data: Record<string, unknown> | undefined): string {
-  if (!data || Object.keys(data).length === 0) {
-    return 'No custom metadata';
-  }
-  return JSON.stringify(data, null, 2);
-}
-
 export function MetadataDialog({
   isOpen,
   item,
@@ -51,18 +27,6 @@ export function MetadataDialog({
   isLoading = false,
   onClose,
 }: MetadataDialogProps) {
-  // Combine item data with fetched metadata
-  const displayData = {
-    name: item?.name || '-',
-    path: item?.path || '-',
-    type: item?.isDirectory ? 'Folder' : (item as FileItem)?.mimeType || 'Unknown',
-    size: item?.isDirectory ? undefined : (item as FileItem)?.size,
-    createdAt: item?.createdAt,
-    modifiedAt: item?.modifiedAt,
-    storageType: metadata?.storage_type,
-    fileData: metadata?.file_data,
-  };
-
   if (!isOpen || !item) return null;
 
   return (
@@ -89,59 +53,14 @@ export function MetadataDialog({
           </button>
         </div>
 
-        {/* Content */}
+        {/* Content - uses FileInfoPanel */}
         <div className="p-4 overflow-auto flex-1">
-          {/* Basic Info */}
-          <dl className="space-y-3">
-            <div className="flex">
-              <dt className="w-24 text-sm font-medium text-gray-500">Name:</dt>
-              <dd className="flex-1 text-sm text-gray-900 break-all">{displayData.name}</dd>
-            </div>
-            <div className="flex">
-              <dt className="w-24 text-sm font-medium text-gray-500">Path:</dt>
-              <dd className="flex-1 text-sm text-gray-900 break-all font-mono text-xs">{displayData.path}</dd>
-            </div>
-            <div className="flex">
-              <dt className="w-24 text-sm font-medium text-gray-500">Type:</dt>
-              <dd className="flex-1 text-sm text-gray-900">{displayData.type}</dd>
-            </div>
-            {displayData.size !== undefined && (
-              <div className="flex">
-                <dt className="w-24 text-sm font-medium text-gray-500">Size:</dt>
-                <dd className="flex-1 text-sm text-gray-900">{formatBytes(displayData.size)}</dd>
-              </div>
-            )}
-            <div className="flex">
-              <dt className="w-24 text-sm font-medium text-gray-500">Created:</dt>
-              <dd className="flex-1 text-sm text-gray-900">{formatDate(displayData.createdAt)}</dd>
-            </div>
-            <div className="flex">
-              <dt className="w-24 text-sm font-medium text-gray-500">Modified:</dt>
-              <dd className="flex-1 text-sm text-gray-900">{formatDate(displayData.modifiedAt)}</dd>
-            </div>
-            {displayData.storageType && (
-              <div className="flex">
-                <dt className="w-24 text-sm font-medium text-gray-500">Storage:</dt>
-                <dd className="flex-1 text-sm text-gray-900 capitalize">{displayData.storageType.replace('_', ' ')}</dd>
-              </div>
-            )}
-          </dl>
-
-          {/* Custom Metadata Section */}
-          <div className="mt-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Custom Metadata</h3>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <LoaderIcon size={24} className="text-gray-400" />
-              </div>
-            ) : (
-              <div className="bg-gray-50 rounded-lg p-3 border">
-                <pre className="text-xs text-gray-700 font-mono whitespace-pre-wrap overflow-auto max-h-48">
-                  {formatJSON(displayData.fileData)}
-                </pre>
-              </div>
-            )}
-          </div>
+          <FileInfoPanel
+            item={item}
+            metadata={metadata}
+            isLoading={isLoading}
+            showCustomMetadata={true}
+          />
         </div>
 
         {/* Footer */}

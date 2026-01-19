@@ -15,6 +15,7 @@ export { FilePreview } from './components/FilePreview';
 export { FileActions } from './components/FileActions';
 export { ContextMenu } from './components/ContextMenu';
 export { DragPreview } from './components/DragPreview';
+export { FileInfoPanel } from './components/FileInfoPanel';
 
 export type { PathBreadcrumbProps } from './components/PathBreadcrumb';
 export type { FolderTreeProps } from './components/FolderTree';
@@ -23,6 +24,7 @@ export type { FilePreviewProps } from './components/FilePreview';
 export type { FileActionsProps } from './components/FileActions';
 export type { ContextMenuProps, ContextMenuItem } from './components/ContextMenu';
 export type { DragPreviewProps } from './components/DragPreview';
+export type { FileInfoPanelProps } from './components/FileInfoPanel';
 
 // Dialogs
 export {

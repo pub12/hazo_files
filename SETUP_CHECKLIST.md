@@ -467,6 +467,35 @@ Step-by-step guide to get hazo_files up and running in your project. Check off e
 
 **Checkpoint**: UI components are fully functional.
 
+### 4.4.1 Using FileInfoPanel (Optional)
+
+The `FileInfoPanel` component can be used standalone for displaying file metadata in sidebars or custom UIs:
+
+- [ ] Import `FileInfoPanel`:
+  ```typescript
+  import { FileInfoPanel } from 'hazo_files/ui';
+  ```
+
+- [ ] Add to your component:
+  ```typescript
+  // In a sidebar showing selected file info
+  <FileInfoPanel
+    item={selectedFile}
+    metadata={fileMetadata}
+    isLoading={isLoadingMetadata}
+    showCustomMetadata={true}
+  />
+
+  // Without metadata section for compact display
+  <FileInfoPanel
+    item={selectedFile}
+    showCustomMetadata={false}
+    className="p-2 bg-gray-50 rounded"
+  />
+  ```
+
+**Checkpoint**: FileInfoPanel displays file information correctly.
+
 ## Part 4.5: Naming Rule Configurator (Optional)
 
 ### 4.5.1 Create Naming Configuration Page
