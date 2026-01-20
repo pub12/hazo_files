@@ -37,7 +37,52 @@ export interface MetadataLogger {
 }
 
 /**
- * Minimal CRUD service interface (compatible with hazo_connect CrudService)
+ * Minimal CRUD service interface compatible with hazo_connect CrudService.
+ *
+ * This interface is a structural subset of hazo_connect's CrudService,
+ * allowing you to pass a hazo_connect CrudService directly without any adapter.
+ *
+ * @example Using with hazo_connect
+ * ```typescript
+ * import { createHazoConnect, createCrudService } from 'hazo_connect/server';
+ * import {
+ *   createFileMetadataService,
+ *   HAZO_FILES_TABLE_SCHEMA
+ * } from 'hazo_files';
+ * import type { FileMetadataRecord } from 'hazo_files';
+ *
+ * // 1. Create database table during app setup
+ * await db.run(HAZO_FILES_TABLE_SCHEMA.sqlite.ddl);
+ * for (const idx of HAZO_FILES_TABLE_SCHEMA.sqlite.indexes) {
+ *   await db.run(idx);
+ * }
+ *
+ * // 2. Create hazo_connect CRUD service
+ * const adapter = createHazoConnect({
+ *   type: 'sqlite',
+ *   database_path: './data.db'
+ * });
+ * const crud = createCrudService<FileMetadataRecord>(
+ *   adapter,
+ *   HAZO_FILES_TABLE_SCHEMA.tableName
+ * );
+ *
+ * // 3. Pass directly to hazo_files - NO ADAPTER NEEDED
+ * const metadataService = createFileMetadataService(crud);
+ *
+ * // 4. Use the service
+ * await metadataService.addExtraction(
+ *   '/documents/report.pdf',
+ *   'local',
+ *   { summary: 'Quarterly report' },
+ *   { source: 'gpt-4' }
+ * );
+ * ```
+ *
+ * @remarks
+ * The hazo_connect CrudService has additional methods (findById, query)
+ * that are not used by FileMetadataService, making this interface
+ * a compatible subset.
  */
 export interface CrudServiceLike<T> {
   list(configure?: (qb: unknown) => unknown): Promise<T[]>;

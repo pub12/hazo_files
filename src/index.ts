@@ -26,6 +26,13 @@ export {
   generateSampleConfig,
 } from './config';
 
+// Schema exports for database setup
+export {
+  HAZO_FILES_TABLE_SCHEMA,
+  HAZO_FILES_DEFAULT_TABLE_NAME,
+  getSchemaForTable,
+} from './schema';
+
 // Modules
 export {
   createModule,
@@ -184,3 +191,4 @@ export type {
 
 export type { FileManagerOptions, TrackedFileManagerFullOptions, MetadataLogger, CrudServiceLike, FileMetadataServiceOptions } from './services';
 export type { TokenData, AuthCallbacks, GoogleAuthConfig } from './modules';
+export type { HazoFilesTableSchema, DatabaseSchemaDefinition, HazoFilesColumnDefinitions } from './schema';
