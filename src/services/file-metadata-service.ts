@@ -8,8 +8,23 @@ import type {
   FileMetadataRecord,
   FileMetadataInput,
   StorageProvider,
+  FileDataStructure,
+  ExtractionData,
+  AddExtractionOptions,
+  RemoveExtractionOptions,
 } from '../types';
 import { getBaseName, getDirName } from '../common/path-utils';
+import {
+  parseFileData,
+  stringifyFileData,
+  addExtractionToFileData,
+  removeExtractionById as removeExtractionByIdUtil,
+  removeExtractionByIndex as removeExtractionByIndexUtil,
+  getMergedData as getMergedDataUtil,
+  getExtractions as getExtractionsUtil,
+  getExtractionById as getExtractionByIdUtil,
+  createEmptyFileDataStructure,
+} from '../common/file-data-utils';
 
 /**
  * Logger interface compatible with hazo_connect
@@ -339,6 +354,225 @@ export class FileMetadataService {
       return false;
     } catch (error) {
       this.logError('updateMetadata', error);
+      return false;
+    }
+  }
+
+  // ============================================
+  // Extraction Data Management Methods
+  // ============================================
+
+  /**
+   * Get parsed file_data structure for a file
+   * Automatically migrates old format to new extraction structure
+   */
+  async getFileData(
+    path: string,
+    storageType: StorageProvider
+  ): Promise<FileDataStructure | null> {
+    try {
+      const existing = await this.findByPath(path, storageType);
+      if (!existing) {
+        return null;
+      }
+      return parseFileData(existing.file_data);
+    } catch (error) {
+      this.logError('getFileData', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get merged extraction data for a file
+   */
+  async getMergedData(
+    path: string,
+    storageType: StorageProvider
+  ): Promise<Record<string, unknown> | null> {
+    try {
+      const fileData = await this.getFileData(path, storageType);
+      if (!fileData) {
+        return null;
+      }
+      return getMergedDataUtil(fileData);
+    } catch (error) {
+      this.logError('getMergedData', error);
+      return null;
+    }
+  }
+
+  /**
+   * Add an extraction to a file's data
+   */
+  async addExtraction(
+    path: string,
+    storageType: StorageProvider,
+    data: Record<string, unknown>,
+    options?: AddExtractionOptions
+  ): Promise<ExtractionData | null> {
+    try {
+      const existing = await this.findByPath(path, storageType);
+      if (!existing) {
+        this.logger?.warn?.('Cannot add extraction: file not found', { path });
+        return null;
+      }
+
+      const currentFileData = parseFileData(existing.file_data);
+      const result = addExtractionToFileData(currentFileData, data, options);
+
+      if (!result.success || !result.data) {
+        this.logError('addExtraction', result.error);
+        return null;
+      }
+
+      await this.crud.updateById(existing.id, {
+        file_data: stringifyFileData(result.data),
+        changed_at: this.now(),
+      } as Partial<FileMetadataRecord>);
+
+      // Return the newly added extraction
+      const newExtraction = result.data.raw_data[result.data.raw_data.length - 1];
+      this.logger?.debug?.('Added extraction', { path, extractionId: newExtraction.id });
+      return newExtraction;
+    } catch (error) {
+      this.logError('addExtraction', error);
+      return null;
+    }
+  }
+
+  /**
+   * Remove an extraction by ID
+   */
+  async removeExtractionById(
+    path: string,
+    storageType: StorageProvider,
+    id: string,
+    options?: RemoveExtractionOptions
+  ): Promise<boolean> {
+    try {
+      const existing = await this.findByPath(path, storageType);
+      if (!existing) {
+        return false;
+      }
+
+      const currentFileData = parseFileData(existing.file_data);
+      const result = removeExtractionByIdUtil(currentFileData, id, options);
+
+      if (!result.success || !result.data) {
+        this.logError('removeExtractionById', result.error);
+        return false;
+      }
+
+      await this.crud.updateById(existing.id, {
+        file_data: stringifyFileData(result.data),
+        changed_at: this.now(),
+      } as Partial<FileMetadataRecord>);
+
+      this.logger?.debug?.('Removed extraction by ID', { path, extractionId: id });
+      return true;
+    } catch (error) {
+      this.logError('removeExtractionById', error);
+      return false;
+    }
+  }
+
+  /**
+   * Remove an extraction by index
+   */
+  async removeExtractionByIndex(
+    path: string,
+    storageType: StorageProvider,
+    index: number,
+    options?: RemoveExtractionOptions
+  ): Promise<boolean> {
+    try {
+      const existing = await this.findByPath(path, storageType);
+      if (!existing) {
+        return false;
+      }
+
+      const currentFileData = parseFileData(existing.file_data);
+      const result = removeExtractionByIndexUtil(currentFileData, index, options);
+
+      if (!result.success || !result.data) {
+        this.logError('removeExtractionByIndex', result.error);
+        return false;
+      }
+
+      await this.crud.updateById(existing.id, {
+        file_data: stringifyFileData(result.data),
+        changed_at: this.now(),
+      } as Partial<FileMetadataRecord>);
+
+      this.logger?.debug?.('Removed extraction by index', { path, index });
+      return true;
+    } catch (error) {
+      this.logError('removeExtractionByIndex', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get all extractions for a file
+   */
+  async getExtractions(
+    path: string,
+    storageType: StorageProvider
+  ): Promise<ExtractionData[] | null> {
+    try {
+      const fileData = await this.getFileData(path, storageType);
+      if (!fileData) {
+        return null;
+      }
+      return getExtractionsUtil(fileData);
+    } catch (error) {
+      this.logError('getExtractions', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get a specific extraction by ID
+   */
+  async getExtractionById(
+    path: string,
+    storageType: StorageProvider,
+    id: string
+  ): Promise<ExtractionData | null> {
+    try {
+      const fileData = await this.getFileData(path, storageType);
+      if (!fileData) {
+        return null;
+      }
+      return getExtractionByIdUtil(fileData, id);
+    } catch (error) {
+      this.logError('getExtractionById', error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear all extractions for a file
+   */
+  async clearExtractions(
+    path: string,
+    storageType: StorageProvider
+  ): Promise<boolean> {
+    try {
+      const existing = await this.findByPath(path, storageType);
+      if (!existing) {
+        return false;
+      }
+
+      await this.crud.updateById(existing.id, {
+        file_data: stringifyFileData(createEmptyFileDataStructure()),
+        changed_at: this.now(),
+      } as Partial<FileMetadataRecord>);
+
+      this.logger?.debug?.('Cleared all extractions', { path });
+      return true;
+    } catch (error) {
+      this.logError('clearExtractions', error);
       return false;
     }
   }

@@ -117,6 +117,25 @@ export {
   clonePattern,
   getSystemVariablePreviewValues,
   generatePreviewName,
+  // File data utilities (extraction management)
+  generateExtractionId,
+  createEmptyFileDataStructure,
+  hasExtractionStructure,
+  validateExtractionData,
+  validateFileDataStructure,
+  deepMerge,
+  parseFileData,
+  stringifyFileData,
+  recalculateMergedData,
+  addExtractionToFileData,
+  removeExtractionById,
+  removeExtractionByIndex,
+  getMergedData,
+  getExtractions,
+  getExtractionById,
+  getExtractionCount,
+  clearExtractions,
+  updateExtractionById,
 } from './common';
 
 // Types
@@ -156,6 +175,11 @@ export type {
   FileMetadataUpdate,
   DatabaseTrackingConfig,
   TrackedFileManagerOptions,
+  // Extraction data types
+  ExtractionData,
+  FileDataStructure,
+  AddExtractionOptions,
+  RemoveExtractionOptions,
 } from './types';
 
 export type { FileManagerOptions, TrackedFileManagerFullOptions, MetadataLogger, CrudServiceLike, FileMetadataServiceOptions } from './services';

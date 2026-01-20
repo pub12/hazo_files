@@ -12,6 +12,7 @@ A powerful, modular file management package for Node.js and React applications w
 - **Unified API**: Single consistent interface across all storage providers
 - **React UI Components**: Drop-in FileBrowser component with folder tree, file list, and preview
 - **Naming Rules System**: Visual configurator and utilities for generating consistent file/folder names
+- **Extraction Data Management**: Track and manage LLM-extracted metadata with merge strategies
 - **TypeScript**: Full type safety and IntelliSense support
 - **OAuth Integration**: Built-in Google Drive OAuth authentication
 - **Progress Tracking**: Upload/download progress callbacks
@@ -801,6 +802,133 @@ console.log(segments);
 // Convert back to string
 const patternStr = patternToString(segments);
 // "{client_id}_{YYYY-MM-DD}_{counter}"
+```
+
+## Extraction Data Management
+
+Manage LLM-extracted data stored within the `file_data` JSON field. The system maintains both raw extraction history and merged results.
+
+### Data Structure
+
+```typescript
+interface FileDataStructure {
+  merged_data: Record<string, unknown>;  // Combined data from all extractions
+  raw_data: ExtractionData[];            // Individual extraction entries
+}
+
+interface ExtractionData {
+  id: string;           // Unique extraction ID
+  extracted_at: string; // ISO timestamp
+  source?: string;      // Optional source identifier (e.g., model name)
+  data: Record<string, unknown>;  // The extracted data
+}
+```
+
+### Using with FileMetadataService
+
+```typescript
+import { FileMetadataService, createFileMetadataService } from 'hazo_files';
+
+// Create service with your CRUD provider
+const metadataService = createFileMetadataService(crudService);
+
+// Add an extraction
+const extraction = await metadataService.addExtraction(
+  '/documents/report.pdf',
+  'local',
+  { title: 'Annual Report', author: 'John Doe', pages: 42 },
+  { source: 'gpt-4', mergeStrategy: 'shallow' }
+);
+console.log('Added extraction:', extraction?.id);
+
+// Get merged data (combined from all extractions)
+const merged = await metadataService.getMergedData('/documents/report.pdf', 'local');
+console.log('Merged data:', merged);
+
+// Get all extractions
+const extractions = await metadataService.getExtractions('/documents/report.pdf', 'local');
+console.log('All extractions:', extractions);
+
+// Get a specific extraction
+const specific = await metadataService.getExtractionById(
+  '/documents/report.pdf',
+  'local',
+  extraction?.id
+);
+
+// Remove an extraction (recalculates merged_data by default)
+await metadataService.removeExtractionById(
+  '/documents/report.pdf',
+  'local',
+  extraction?.id,
+  { recalculateMerged: true, mergeStrategy: 'deep' }
+);
+
+// Clear all extractions
+await metadataService.clearExtractions('/documents/report.pdf', 'local');
+```
+
+### Using Utility Functions Directly
+
+For working with parsed data structures without database operations:
+
+```typescript
+import {
+  parseFileData,
+  addExtractionToFileData,
+  removeExtractionById,
+  getMergedData,
+  getExtractions,
+  deepMerge,
+  createEmptyFileDataStructure,
+} from 'hazo_files';
+
+// Parse existing JSON (auto-migrates old format)
+const fileData = parseFileData(existingJsonString);
+
+// Add an extraction (returns new structure, immutable)
+const result = addExtractionToFileData(
+  fileData,
+  { category: 'finance', summary: 'Q4 results' },
+  { source: 'claude-3', mergeStrategy: 'deep' }
+);
+
+if (result.success) {
+  const newFileData = result.data;
+  console.log('New merged data:', newFileData.merged_data);
+  console.log('Extraction count:', newFileData.raw_data.length);
+}
+
+// Remove an extraction by ID
+const removeResult = removeExtractionById(fileData, 'ext_12345', {
+  recalculateMerged: true,
+  mergeStrategy: 'shallow'
+});
+
+// Get copies of data
+const mergedCopy = getMergedData(fileData);
+const extractionsCopy = getExtractions(fileData);
+```
+
+### Merge Strategies
+
+- **Shallow** (default): Spreads top-level properties, later values overwrite earlier
+  ```typescript
+  // { a: 1, b: 2 } + { b: 3, c: 4 } = { a: 1, b: 3, c: 4 }
+  ```
+
+- **Deep**: Recursively merges nested objects, concatenates arrays
+  ```typescript
+  // { a: { x: 1 }, arr: [1] } + { a: { y: 2 }, arr: [2] } = { a: { x: 1, y: 2 }, arr: [1, 2] }
+  ```
+
+### Migration from Old Format
+
+The `parseFileData` function automatically migrates old plain-object format to the new structure:
+
+```typescript
+// Old format: { title: 'Report', author: 'John' }
+// Becomes: { merged_data: { title: 'Report', author: 'John' }, raw_data: [] }
 ```
 
 ## API Reference

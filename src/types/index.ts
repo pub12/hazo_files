@@ -199,4 +199,8 @@ export type {
   FileMetadataUpdate,
   DatabaseTrackingConfig,
   TrackedFileManagerOptions,
+  ExtractionData,
+  FileDataStructure,
+  AddExtractionOptions,
+  RemoveExtractionOptions,
 } from './metadata';

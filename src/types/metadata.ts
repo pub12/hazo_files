@@ -71,3 +71,49 @@ export interface TrackedFileManagerOptions {
   /** Database tracking configuration */
   tracking?: DatabaseTrackingConfig;
 }
+
+/**
+ * Individual extraction entry stored in raw_data array
+ */
+export interface ExtractionData {
+  /** Unique identifier for this extraction */
+  id: string;
+  /** ISO timestamp when extraction was performed */
+  extracted_at: string;
+  /** Optional source identifier (e.g., LLM model, extraction method) */
+  source?: string;
+  /** The extracted data payload */
+  data: Record<string, unknown>;
+}
+
+/**
+ * Structure for the file_data JSON field supporting extraction data
+ */
+export interface FileDataStructure {
+  /** Combined data from all extractions */
+  merged_data: Record<string, unknown>;
+  /** Array of individual extraction entries */
+  raw_data: ExtractionData[];
+}
+
+/**
+ * Options for adding an extraction
+ */
+export interface AddExtractionOptions {
+  /** Custom ID for the extraction (auto-generated if not provided) */
+  id?: string;
+  /** Source identifier for the extraction */
+  source?: string;
+  /** Merge strategy: 'shallow' spreads top-level, 'deep' recursively merges */
+  mergeStrategy?: 'shallow' | 'deep';
+}
+
+/**
+ * Options for removing an extraction
+ */
+export interface RemoveExtractionOptions {
+  /** Whether to recalculate merged_data after removal (default: true) */
+  recalculateMerged?: boolean;
+  /** Merge strategy to use when recalculating (default: 'shallow') */
+  mergeStrategy?: 'shallow' | 'deep';
+}

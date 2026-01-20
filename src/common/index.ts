@@ -18,3 +18,4 @@ export {
 } from './mime-types';
 export * from './base-module';
 export * from './naming-utils';
+export * from './file-data-utils';
