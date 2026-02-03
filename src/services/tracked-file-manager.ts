@@ -18,6 +18,7 @@ import type {
   DatabaseTrackingConfig,
 } from '../types';
 import { getMimeType } from '../common/mime-types';
+import { computeFileInfo, hasFileContentChanged } from '../common/hash-utils';
 
 /**
  * Options for creating a TrackedFileManager
@@ -27,6 +28,20 @@ export interface TrackedFileManagerFullOptions extends FileManagerOptions {
   crudService?: CrudServiceLike<FileMetadataRecord>;
   /** Database tracking configuration */
   tracking?: DatabaseTrackingConfig;
+}
+
+/**
+ * Extended upload options with hash tracking
+ */
+export interface TrackedUploadOptions extends UploadOptions {
+  /** Skip hash computation (useful for large files or when not needed) */
+  skipHash?: boolean;
+  /**
+   * If true, awaits the database recording before returning.
+   * By default, recording is fire-and-forget for performance.
+   * Set to true when you need to immediately query/update the file record.
+   */
+  awaitRecording?: boolean;
 }
 
 /**
@@ -112,23 +127,60 @@ export class TrackedFileManager extends FileManager {
 
   /**
    * Upload a file and record it in the database
+   * Computes file hash for change detection unless skipHash is true
    */
   async uploadFile(
     source: string | Buffer | ReadableStream,
     remotePath: string,
-    options?: UploadOptions
+    options?: TrackedUploadOptions
   ): Promise<OperationResult<FileItem>> {
+    // Get buffer for hash computation if source is a Buffer
+    let fileBuffer: Buffer | null = null;
+    if (source instanceof Buffer) {
+      fileBuffer = source;
+    }
+
     const result = await super.uploadFile(source, remotePath, options);
 
     if (result.success && this.isTrackingEnabled() && result.data) {
       const fileItem = result.data;
-      this.metadataService!.recordUpload({
+      const skipHash = options?.skipHash ?? false;
+      const awaitRecording = options?.awaitRecording ?? false;
+
+      // Compute hash and size if we have a buffer and hashing is not skipped
+      let fileHash: string | undefined;
+      let fileSize: number | undefined;
+
+      if (fileBuffer && !skipHash) {
+        try {
+          const fileInfo = await computeFileInfo(fileBuffer);
+          fileHash = fileInfo.file_hash;
+          fileSize = fileInfo.file_size;
+        } catch {
+          // Hash computation failed, continue without hash
+        }
+      } else if (fileBuffer) {
+        // Still record size even if hash is skipped
+        fileSize = fileBuffer.length;
+      }
+
+      const recordPromise = this.metadataService!.recordUpload({
         filename: fileItem.name,
         file_type: fileItem.mimeType || getMimeType(fileItem.name),
         file_data: options?.metadata || fileItem.metadata,
         file_path: remotePath,
         storage_type: this.getStorageType(),
-      }).catch(() => {});
+        file_hash: fileHash,
+        file_size: fileSize,
+      });
+
+      if (awaitRecording) {
+        // Wait for recording to complete - useful when immediate record access is needed
+        await recordPromise;
+      } else {
+        // Fire and forget - default behavior for performance
+        recordPromise.catch(() => {});
+      }
     }
 
     return result;
@@ -289,6 +341,91 @@ export class TrackedFileManager extends FileManager {
    */
   getTrackingConfig(): DatabaseTrackingConfig {
     return { ...this.trackingConfig };
+  }
+
+  // ============ Hash-based Change Detection ============
+
+  /**
+   * Check if a file's content has changed since it was last tracked
+   *
+   * Compares the stored hash with the current file hash.
+   * Returns true if the file has changed or if no hash was previously stored.
+   *
+   * @param path - Virtual path to the file
+   * @returns True if file has changed, false if unchanged, null if file not found
+   *
+   * @example
+   * ```typescript
+   * const hasChanged = await trackedManager.hasFileChanged('/docs/report.pdf');
+   * if (hasChanged) {
+   *   console.log('File has been modified since last upload');
+   * }
+   * ```
+   */
+  async hasFileChanged(path: string): Promise<boolean | null> {
+    if (!this.isTrackingEnabled()) {
+      return null; // Can't check without tracking
+    }
+
+    // Get stored metadata
+    const record = await this.metadataService!.findByPath(path, this.getStorageType());
+    if (!record) {
+      return null; // File not tracked
+    }
+
+    const storedHash = record.file_hash;
+    if (!storedHash) {
+      return true; // No hash stored, treat as changed
+    }
+
+    // Download current file content
+    const downloadResult = await super.downloadFile(path);
+    if (!downloadResult.success || !downloadResult.data) {
+      return null; // Can't download file
+    }
+
+    // Convert to buffer if needed
+    let buffer: Buffer;
+    if (typeof downloadResult.data === 'string') {
+      buffer = Buffer.from(downloadResult.data, 'utf-8');
+    } else if (downloadResult.data instanceof Buffer) {
+      buffer = downloadResult.data;
+    } else {
+      return null; // Unexpected type
+    }
+
+    // Compare hashes
+    return hasFileContentChanged(storedHash, buffer);
+  }
+
+  /**
+   * Get the stored hash for a file
+   *
+   * @param path - Virtual path to the file
+   * @returns Stored hash or null if not found/not tracked
+   */
+  async getStoredHash(path: string): Promise<string | null> {
+    if (!this.isTrackingEnabled()) {
+      return null;
+    }
+
+    const record = await this.metadataService!.findByPath(path, this.getStorageType());
+    return record?.file_hash || null;
+  }
+
+  /**
+   * Get the stored file size
+   *
+   * @param path - Virtual path to the file
+   * @returns Stored size in bytes or null if not found/not tracked
+   */
+  async getStoredSize(path: string): Promise<number | null> {
+    if (!this.isTrackingEnabled()) {
+      return null;
+    }
+
+    const record = await this.metadataService!.findByPath(path, this.getStorageType());
+    return record?.file_size ?? null;
   }
 }
 

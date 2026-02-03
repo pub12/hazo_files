@@ -80,3 +80,17 @@ export type {
 
 // Naming Rule Hook
 export { useNamingRule, type UseNamingRuleOptions } from './hooks/useNamingRule';
+
+// Naming Convention Management Components
+export {
+  NamingConventionList,
+  NamingConventionEditor,
+  NamingConventionManager,
+} from './components/naming-management';
+
+export type {
+  NamingConventionListProps,
+  NamingConventionEditorProps,
+  NamingConventionManagerProps,
+  NamingConventionAPI,
+} from './components/naming-management';

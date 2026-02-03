@@ -26,6 +26,12 @@ export interface FileMetadataRecord extends Record<string, unknown> {
   file_path: string;
   /** Storage provider type */
   storage_type: StorageProvider;
+  /** xxHash hash of file content for change detection (null for folders) */
+  file_hash?: string | null;
+  /** File size in bytes (null for folders) */
+  file_size?: number | null;
+  /** ISO timestamp when file content last changed */
+  file_changed_at?: string | null;
 }
 
 /**
@@ -37,6 +43,10 @@ export interface FileMetadataInput {
   file_data?: Record<string, unknown>;
   file_path: string;
   storage_type: StorageProvider;
+  /** xxHash hash of file content for change detection */
+  file_hash?: string;
+  /** File size in bytes */
+  file_size?: number;
 }
 
 /**

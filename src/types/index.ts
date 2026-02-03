@@ -204,3 +204,13 @@ export type {
   AddExtractionOptions,
   RemoveExtractionOptions,
 } from './metadata';
+
+// Naming convention types
+export type {
+  NamingConventionType,
+  NamingConventionRecord,
+  NamingConventionInput,
+  NamingConventionUpdate,
+  ParsedNamingConvention,
+  ListNamingConventionsOptions,
+} from './naming-convention';

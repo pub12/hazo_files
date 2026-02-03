@@ -16,7 +16,7 @@ export {
   createInitializedTrackedFileManager,
 } from './tracked-file-manager';
 
-export type { TrackedFileManagerFullOptions } from './tracked-file-manager';
+export type { TrackedFileManagerFullOptions, TrackedUploadOptions } from './tracked-file-manager';
 
 export {
   FileMetadataService,
@@ -28,3 +28,34 @@ export type {
   CrudServiceLike,
   FileMetadataServiceOptions,
 } from './file-metadata-service';
+
+export {
+  NamingConventionService,
+  createNamingConventionService,
+} from './naming-convention-service';
+
+export type { NamingConventionServiceOptions } from './naming-convention-service';
+
+export {
+  LLMExtractionService,
+  createLLMExtractionService,
+} from './llm-extraction-service';
+
+export type {
+  LLMProvider,
+  LLMFactory,
+  HazoLLMInstance,
+  ExtractionOptions,
+  ExtractionResult,
+} from './llm-extraction-service';
+
+export {
+  UploadExtractService,
+  createUploadExtractService,
+} from './upload-extract-service';
+
+export type {
+  UploadExtractOptions,
+  UploadExtractResult,
+  CreateFolderOptions,
+} from './upload-extract-service';

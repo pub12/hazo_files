@@ -12,7 +12,11 @@ A powerful, modular file management package for Node.js and React applications w
 - **Unified API**: Single consistent interface across all storage providers
 - **React UI Components**: Drop-in FileBrowser component with folder tree, file list, and preview
 - **Naming Rules System**: Visual configurator and utilities for generating consistent file/folder names
+- **Naming Convention Management**: Full CRUD with UI components for managing naming conventions in database
 - **Extraction Data Management**: Track and manage LLM-extracted metadata with merge strategies
+- **LLM Integration**: Built-in support for hazo_llm_api document/image extraction
+- **Upload + Extract Workflow**: Combined service for uploading files with automatic LLM extraction and naming
+- **File Change Detection**: xxHash-based content hashing for efficient change detection
 - **TypeScript**: Full type safety and IntelliSense support
 - **OAuth Integration**: Built-in Google Drive OAuth authentication
 - **Progress Tracking**: Upload/download progress callbacks
@@ -35,6 +39,15 @@ For the NamingRuleConfigurator component (drag-and-drop interface), also install
 
 ```bash
 npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
+```
+
+For database tracking and LLM extraction features (optional):
+
+```bash
+npm install hazo_connect      # Database tracking
+npm install hazo_llm_api      # LLM document extraction
+npm install server-only       # Server-side safety (recommended)
+# Note: xxhash-wasm is included automatically as a dependency
 ```
 
 ## Quick Start
@@ -687,6 +700,41 @@ System variables included:
 - **File**: original_name, extension, ext
 - **Counter**: counter (auto-incrementing with padding)
 
+### Naming Convention Management Components
+
+Full UI for managing naming conventions stored in the database:
+
+```tsx
+import {
+  NamingConventionManager,
+  NamingConventionList,
+  NamingConventionEditor,
+} from 'hazo_files/ui';
+
+// Full management UI (list + editor combined)
+<NamingConventionManager
+  api={namingAPI}
+  onSelect={(convention) => applyConvention(convention)}
+/>
+
+// Or use components separately
+<NamingConventionList
+  api={namingAPI}
+  selectedId={selectedId}
+  onSelect={setSelectedId}
+  onEdit={(id) => openEditor(id)}
+  onDelete={(id) => confirmDelete(id)}
+/>
+
+<NamingConventionEditor
+  api={namingAPI}
+  conventionId={editingId}
+  userVariables={customVariables}
+  onSave={(convention) => handleSave(convention)}
+  onCancel={() => closeEditor()}
+/>
+```
+
 ## Naming Rules API
 
 Generate file and folder names programmatically from naming schemas:
@@ -931,6 +979,252 @@ The `parseFileData` function automatically migrates old plain-object format to t
 // Becomes: { merged_data: { title: 'Report', author: 'John' }, raw_data: [] }
 ```
 
+## Naming Convention Management
+
+Store and manage naming conventions in your database with full CRUD operations.
+
+### NamingConventionService
+
+```typescript
+import { NamingConventionService, HAZO_FILES_NAMING_TABLE_SCHEMA } from 'hazo_files';
+import { createCrudService } from 'hazo_connect/server';
+
+// Create CRUD service for naming conventions table
+const namingCrud = createCrudService(adapter, HAZO_FILES_NAMING_TABLE_SCHEMA.tableName);
+const namingService = new NamingConventionService(namingCrud);
+
+// Create a naming convention
+const convention = await namingService.create({
+  naming_title: 'Tax Documents',
+  naming_type: 'both', // 'file', 'folder', or 'both'
+  naming_value: {
+    version: 1,
+    filePattern: [
+      { id: '1', type: 'variable', value: 'client_id' },
+      { id: '2', type: 'literal', value: '_' },
+      { id: '3', type: 'variable', value: 'YYYY-MM-DD' },
+    ],
+    folderPattern: [
+      { id: '4', type: 'variable', value: 'YYYY' },
+      { id: '5', type: 'literal', value: '/' },
+      { id: '6', type: 'variable', value: 'client_id' },
+    ],
+  },
+  variables: [
+    { variable_name: 'client_id', description: 'Client ID', example_value: 'ACME', category: 'user' }
+  ],
+  scope_id: 'optional-scope-uuid', // Link to hazo_scopes for organization
+});
+
+// Get all conventions
+const allConventions = await namingService.list();
+
+// Get parsed conventions (with schema and variables as objects)
+const parsed = await namingService.listParsed();
+
+// Get by scope (e.g., for a specific organization)
+const scopedConventions = await namingService.getByScope('scope-uuid');
+
+// Update
+await namingService.update(convention.id, {
+  naming_title: 'Updated Tax Documents',
+});
+
+// Duplicate
+const copy = await namingService.duplicate(convention.id, 'Tax Documents Copy');
+
+// Delete
+await namingService.delete(convention.id);
+```
+
+### NamingConventionManager UI Component
+
+```tsx
+import { NamingConventionManager } from 'hazo_files/ui';
+import type { NamingConventionAPI } from 'hazo_files/ui';
+
+// Create API adapter for your backend
+const namingAPI: NamingConventionAPI = {
+  list: () => fetch('/api/naming-conventions').then(r => r.json()),
+  create: (input) => fetch('/api/naming-conventions', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }).then(r => r.json()),
+  update: (id, input) => fetch(`/api/naming-conventions/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  }).then(r => r.json()),
+  delete: (id) => fetch(`/api/naming-conventions/${id}`, {
+    method: 'DELETE',
+  }).then(r => r.json()),
+};
+
+function NamingConventionsPage() {
+  return (
+    <NamingConventionManager
+      api={namingAPI}
+      onSelect={(convention) => console.log('Selected:', convention)}
+    />
+  );
+}
+```
+
+## Upload with LLM Extraction
+
+Combine file uploads with automatic LLM extraction and naming convention application.
+
+### UploadExtractService
+
+```typescript
+import {
+  TrackedFileManager,
+  NamingConventionService,
+  LLMExtractionService,
+  UploadExtractService,
+} from 'hazo_files';
+import { createLLM } from 'hazo_llm_api';
+
+// Create LLM extraction service
+const extractionService = new LLMExtractionService((provider, options) => {
+  return createLLM({ provider, ...options });
+}, 'gemini');
+
+// Create upload + extract service
+const uploadExtract = new UploadExtractService(
+  trackedFileManager,
+  namingService,
+  extractionService
+);
+
+// Upload with extraction and naming convention
+const result = await uploadExtract.uploadWithExtract(
+  pdfBuffer,
+  'quarterly-report.pdf',
+  {
+    // Enable LLM extraction
+    extract: true,
+    extractionOptions: {
+      promptArea: 'reports',
+      promptKey: 'extract_summary',
+      llmProvider: 'gemini',
+    },
+    // Apply naming convention
+    namingConventionId: 'convention-uuid',
+    namingVariables: { client_id: 'ACME', project: 'Q4' },
+    basePath: '/documents',
+    createFolders: true,
+    counterValue: 1,
+  }
+);
+
+if (result.success) {
+  console.log('Uploaded to:', result.generatedPath);
+  // e.g., '/documents/2024/ACME/ACME_Q4_2024-12-09_001.pdf'
+  console.log('Extracted data:', result.extraction?.data);
+}
+
+// Generate path preview without uploading
+const preview = await uploadExtract.generatePath(
+  'document.pdf',
+  'convention-uuid',
+  { client_id: 'ACME' },
+  { basePath: '/docs', counterValue: 5 }
+);
+console.log('Would upload to:', preview.fullPath);
+
+// Create folder from naming convention
+const folderResult = await uploadExtract.createFolderFromConvention(
+  'convention-uuid',
+  { client_id: 'ACME', project: 'Website' },
+  { basePath: '/projects' }
+);
+```
+
+### LLMExtractionService Standalone
+
+```typescript
+import { LLMExtractionService } from 'hazo_files';
+
+const extractionService = new LLMExtractionService(llmFactory, 'gemini');
+
+// Extract from document
+const result = await extractionService.extractFromDocument(
+  pdfBuffer,
+  'application/pdf',
+  {
+    customPrompt: 'Extract all financial figures and dates',
+    llmProvider: 'qwen',
+  }
+);
+
+// Extract from image
+const imageResult = await extractionService.extractFromImage(
+  imageBuffer,
+  'image/jpeg',
+  {
+    promptArea: 'receipts',
+    promptKey: 'extract_receipt',
+  }
+);
+
+// Auto-detect based on MIME type
+const autoResult = await extractionService.extract(
+  buffer,
+  mimeType,
+  extractionOptions
+);
+```
+
+## File Change Detection
+
+Detect file content changes using fast xxHash hashing.
+
+```typescript
+import { TrackedFileManager, computeFileHash, hasFileContentChanged } from 'hazo_files';
+
+// TrackedFileManager automatically tracks file hashes on upload
+const result = await trackedManager.uploadFile(buffer, '/docs/report.pdf', {
+  skipHash: false, // Hash is computed by default
+  awaitRecording: true, // Wait for DB record before returning
+});
+
+// Check if a file has changed since it was tracked
+const hasChanged = await trackedManager.hasFileChanged('/docs/report.pdf');
+if (hasChanged) {
+  console.log('File has been modified since last upload');
+}
+
+// Get stored hash and size
+const hash = await trackedManager.getStoredHash('/docs/report.pdf');
+const size = await trackedManager.getStoredSize('/docs/report.pdf');
+
+// Use hash utilities directly
+const fileHash = await computeFileHash(buffer);
+const changed = await hasFileContentChanged(oldHash, newBuffer);
+```
+
+### Server Entry Point
+
+For server-side applications, use the `/server` entry point which includes a factory function:
+
+```typescript
+import { createHazoFilesServer } from 'hazo_files/server';
+
+const hazoFiles = await createHazoFilesServer({
+  crudService: fileCrud,
+  namingCrudService: namingCrud,
+  config: {
+    provider: 'local',
+    local: { basePath: './storage' },
+  },
+  enableTracking: true,
+  llmFactory: (provider) => createLLM({ provider }),
+});
+
+// Access all services
+const { fileManager, metadataService, namingService, extractionService, uploadExtractService } = hazoFiles;
+```
+
 ## API Reference
 
 ### FileManager
@@ -1123,6 +1417,8 @@ Contributions are welcome! Please:
 - Batch operations
 - File versioning
 - Sharing and permissions
+- Real-time file sync
+- Thumbnail generation
 
 ## Credits
 
@@ -1132,4 +1428,6 @@ Built with:
 - TypeScript
 - React
 - Google APIs (googleapis)
+- xxhash-wasm for fast file hashing
+- @dnd-kit for drag-and-drop
 - tsup for building

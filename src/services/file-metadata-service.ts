@@ -159,6 +159,9 @@ export class FileMetadataService {
         storage_type: input.storage_type,
         created_at: timestamp,
         changed_at: timestamp,
+        file_hash: input.file_hash || null,
+        file_size: input.file_size ?? null,
+        file_changed_at: input.file_hash ? timestamp : null, // Set content changed time if hash is provided
       };
 
       const results = await this.crud.insert(record as Partial<FileMetadataRecord>);

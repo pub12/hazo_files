@@ -1,41 +1,80 @@
 /**
- * Hazo Files - File Management Package
- * Supports local storage and Google Drive with a unified API
+ * Hazo Files - Server Entry Point
+ *
+ * Server-only exports for Node.js environments.
+ * Use this entry point when you need full server-side functionality
+ * including database tracking, LLM extraction, and file operations.
+ *
+ * @example
+ * ```typescript
+ * import {
+ *   createHazoFilesServer,
+ *   HAZO_FILES_TABLE_SCHEMA,
+ *   HAZO_FILES_NAMING_TABLE_SCHEMA
+ * } from 'hazo_files/server';
+ * ```
  */
 
-// Main service
+// Ensure this module is only used on the server
+// The consuming app should install 'server-only' package
+try {
+  // Dynamic import to avoid bundler issues if package not installed
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('server-only');
+} catch {
+  // server-only package not installed, skip the check
+  // This allows the package to work without the dependency
+}
+
+// Factory
+export {
+  createHazoFilesServer,
+  createBasicFileManager,
+} from './factory';
+
+export type {
+  HazoFilesServerOptions,
+  HazoFilesServerInstance,
+  HazoLogger,
+} from './factory';
+
+// Services
 export {
   FileManager,
   createFileManager,
   createInitializedFileManager,
-  // Tracked file manager with database support
   TrackedFileManager,
   createTrackedFileManager,
   createInitializedTrackedFileManager,
-  // File metadata service
   FileMetadataService,
   createFileMetadataService,
-  // Naming convention service
   NamingConventionService,
   createNamingConventionService,
-  // LLM extraction service
   LLMExtractionService,
   createLLMExtractionService,
-  // Upload + extract service
   UploadExtractService,
   createUploadExtractService,
-} from './services';
+} from '../services';
 
-// Configuration
-export {
-  loadConfig,
-  loadConfigAsync,
-  parseConfig,
-  saveConfig,
-  generateSampleConfig,
-} from './config';
+export type {
+  FileManagerOptions,
+  TrackedFileManagerFullOptions,
+  TrackedUploadOptions,
+  MetadataLogger,
+  CrudServiceLike,
+  FileMetadataServiceOptions,
+  NamingConventionServiceOptions,
+  LLMProvider,
+  LLMFactory,
+  HazoLLMInstance,
+  ExtractionOptions,
+  ExtractionResult,
+  UploadExtractOptions,
+  UploadExtractResult,
+  CreateFolderOptions,
+} from '../services';
 
-// Schema exports for database setup
+// Schema exports
 export {
   HAZO_FILES_TABLE_SCHEMA,
   HAZO_FILES_DEFAULT_TABLE_NAME,
@@ -43,7 +82,15 @@ export {
   HAZO_FILES_NAMING_TABLE_SCHEMA,
   HAZO_FILES_NAMING_DEFAULT_TABLE_NAME,
   getNamingSchemaForTable,
-} from './schema';
+} from '../schema';
+
+export type {
+  HazoFilesTableSchema,
+  HazoFilesNamingTableSchema,
+  DatabaseSchemaDefinition,
+  HazoFilesColumnDefinitions,
+  HazoFilesNamingColumnDefinitions,
+} from '../schema';
 
 // Modules
 export {
@@ -58,7 +105,22 @@ export {
   createGoogleDriveModule,
   GoogleDriveAuth,
   createGoogleDriveAuth,
-} from './modules';
+} from '../modules';
+
+export type {
+  TokenData,
+  AuthCallbacks,
+  GoogleAuthConfig,
+} from '../modules';
+
+// Configuration
+export {
+  loadConfig,
+  loadConfigAsync,
+  parseConfig,
+  saveConfig,
+  generateSampleConfig,
+} from '../config';
 
 // Common utilities
 export {
@@ -136,7 +198,7 @@ export {
   clonePattern,
   getSystemVariablePreviewValues,
   generatePreviewName,
-  // File data utilities (extraction management)
+  // File data utilities
   generateExtractionId,
   createEmptyFileDataStructure,
   hasExtractionStructure,
@@ -162,7 +224,9 @@ export {
   computeFileHashFromStream,
   hashesEqual,
   hasFileContentChanged,
-} from './common';
+} from '../common';
+
+export type { FileInfo } from '../common/hash-utils';
 
 // Types
 export type {
@@ -213,31 +277,4 @@ export type {
   NamingConventionUpdate,
   ParsedNamingConvention,
   ListNamingConventionsOptions,
-} from './types';
-
-export type {
-  FileManagerOptions,
-  TrackedFileManagerFullOptions,
-  TrackedUploadOptions,
-  MetadataLogger,
-  CrudServiceLike,
-  FileMetadataServiceOptions,
-  NamingConventionServiceOptions,
-  LLMProvider,
-  LLMFactory,
-  HazoLLMInstance,
-  ExtractionOptions,
-  ExtractionResult,
-  UploadExtractOptions,
-  UploadExtractResult,
-  CreateFolderOptions,
-} from './services';
-export type { TokenData, AuthCallbacks, GoogleAuthConfig } from './modules';
-export type {
-  HazoFilesTableSchema,
-  HazoFilesNamingTableSchema,
-  DatabaseSchemaDefinition,
-  HazoFilesColumnDefinitions,
-  HazoFilesNamingColumnDefinitions,
-} from './schema';
-export type { FileInfo } from './common/hash-utils';
+} from '../types';

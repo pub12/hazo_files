@@ -24,23 +24,40 @@ AI-optimized technical reference for the hazo_files package. This document is de
 hazo_files/
 ├── Core Layer (TypeScript)
 │   ├── FileManager (main service)
+│   ├── TrackedFileManager (with DB tracking + hashing)
 │   ├── StorageModule interface (contract)
 │   ├── Configuration system (INI + env vars)
 │   └── Naming system (file/folder name generation)
+├── Service Layer
+│   ├── FileMetadataService (DB tracking)
+│   ├── NamingConventionService (convention CRUD)
+│   ├── LLMExtractionService (hazo_llm_api integration)
+│   └── UploadExtractService (combined workflow)
 ├── Module Layer (storage providers)
 │   ├── LocalStorageModule (filesystem)
 │   └── GoogleDriveModule (Drive API + OAuth)
 ├── UI Layer (React components)
 │   ├── FileBrowser (complete solution)
 │   ├── NamingRuleConfigurator (naming pattern builder)
+│   ├── NamingConventionManager (convention management)
 │   └── Individual components + hooks
+├── Server Layer (server-only entry point)
+│   ├── Factory function (createHazoFilesServer)
+│   └── Integration with hazo_* packages
 └── Common Layer (utilities)
     ├── Error types (12 specific errors)
     ├── Path utilities (normalization, joining)
     ├── MIME type detection
     ├── Naming utilities (pattern generation)
+    ├── Hash utilities (xxHash for change detection)
     └── Helper functions
 ```
+
+## Entry Points
+
+- `hazo_files` - Core exports, works everywhere
+- `hazo_files/ui` - React components (client-safe)
+- `hazo_files/server` - Server-only exports with factory
 
 ## Critical Patterns
 
@@ -940,9 +957,25 @@ const fileItem = result.data;
 **Core**:
 - Types: `src/types/index.ts`
 - Naming Types: `src/types/naming.ts`
+- Naming Convention Types: `src/types/naming-convention.ts`
+- Metadata Types: `src/types/metadata.ts`
 - FileManager: `src/services/file-manager.ts`
 - Base Module: `src/common/base-module.ts`
 - Config: `src/config/index.ts`
+
+**Services**:
+- TrackedFileManager: `src/services/tracked-file-manager.ts`
+- FileMetadataService: `src/services/file-metadata-service.ts`
+- NamingConventionService: `src/services/naming-convention-service.ts`
+- LLMExtractionService: `src/services/llm-extraction-service.ts`
+- UploadExtractService: `src/services/upload-extract-service.ts`
+
+**Server Entry Point**:
+- Server Index: `src/server/index.ts`
+- Factory: `src/server/factory.ts`
+
+**Schema**:
+- Database Schema: `src/schema/index.ts`
 
 **Storage Modules**:
 - Local Module: `src/modules/local/index.ts`
@@ -954,6 +987,8 @@ const fileItem = result.data;
 - Path Utils: `src/common/path-utils.ts`
 - MIME Types: `src/common/mime-types.ts`
 - Naming Utils: `src/common/naming-utils.ts`
+- Hash Utils: `src/common/hash-utils.ts`
+- File Data Utils: `src/common/file-data-utils.ts`
 
 **UI Components**:
 - FileBrowser: `src/ui/components/FileBrowser.tsx`
@@ -965,6 +1000,9 @@ const fileItem = result.data;
 - PatternSegmentItem: `src/ui/components/naming/PatternSegmentItem.tsx`
 - DraggableVariable: `src/ui/components/naming/DraggableVariable.tsx`
 - SeparatorPicker: `src/ui/components/naming/SeparatorPicker.tsx`
+- NamingConventionManager: `src/ui/components/naming-management/NamingConventionManager.tsx`
+- NamingConventionList: `src/ui/components/naming-management/NamingConventionList.tsx`
+- NamingConventionEditor: `src/ui/components/naming-management/NamingConventionEditor.tsx`
 
 **UI Hooks**:
 - useFileBrowser: `src/ui/hooks/useFileBrowser.ts`
