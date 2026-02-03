@@ -6,14 +6,24 @@
     "auditLog": "/Users/pubs/Local/01.code/00.lib/hazo_files/test-app/logs/.24bd163b37ab73e513e44a410e93a3b9b25f836f-audit.json",
     "files": [
         {
-            "date": 1768715146265,
-            "name": "/Users/pubs/Local/01.code/00.lib/hazo_files/test-app/logs/hazo-2026-01-18.log",
-            "hash": "19377b0b0a01014fc7f48d58d858dffdb57d8ee54e412cc485d146416ad0645a"
+            "date": 1768911832894,
+            "name": "/Users/pubs/Local/01.code/00.lib/hazo_files/test-app/logs/hazo-2026-01-20.log",
+            "hash": "8d8100fd3acc2b6ede1af4c260be7bf13455c5920386cf435e18dbba8c971f30"
         },
         {
-            "date": 1768772643140,
-            "name": "/Users/pubs/Local/01.code/00.lib/hazo_files/test-app/logs/hazo-2026-01-19.log",
-            "hash": "a72eb042decadd45f8e6ff15d29ac2531f0ab76068ce7ef899c9887a57f7a700"
+            "date": 1769379085439,
+            "name": "/Users/pubs/Local/01.code/00.lib/hazo_files/test-app/logs/hazo-2026-01-26.log",
+            "hash": "a41b3e644bdc76389e4d5d66cc1b3c06d0ae3ba3e03b2001248db306bc48c4c6"
+        },
+        {
+            "date": 1769741171908,
+            "name": "/Users/pubs/Local/01.code/00.lib/hazo_files/test-app/logs/hazo-2026-01-30.log",
+            "hash": "27684231604d486a7e41139c3066674c2727616af121a0a963edba7824ac82df"
+        },
+        {
+            "date": 1770083754042,
+            "name": "/Users/pubs/Local/01.code/00.lib/hazo_files/test-app/logs/hazo-2026-02-03.log",
+            "hash": "ec16bf5913ff7a6d3bff158150d367711cb9a5814543760a62114067958922de"
         }
     ],
     "hashType": "sha256"

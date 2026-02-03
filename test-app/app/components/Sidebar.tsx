@@ -14,6 +14,10 @@ import {
   FileText,
   FlaskConical,
   Database,
+  Tags,
+  Upload,
+  Bot,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -60,6 +64,26 @@ const menuItems = [
     title: 'File Metadata',
     icon: Database,
     href: '/file-metadata',
+  },
+  {
+    title: 'Naming Conventions',
+    icon: Tags,
+    href: '/naming-conventions',
+  },
+  {
+    title: 'Upload & Extract',
+    icon: Upload,
+    href: '/upload-extract',
+  },
+  {
+    title: 'LLM API',
+    icon: Bot,
+    href: '/llm-api',
+  },
+  {
+    title: 'Prompts',
+    icon: MessageSquare,
+    href: '/prompts',
   },
 ];
 

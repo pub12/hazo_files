@@ -7,6 +7,9 @@ const config: Config = {
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     '../src/ui/**/*.{js,ts,jsx,tsx}',
+    // Include hazo_llm_api components for Tailwind class compilation
+    '../node_modules/hazo_llm_api/dist/**/*.{js,ts,jsx,tsx}',
+    '../../hazo_llm_api/src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {

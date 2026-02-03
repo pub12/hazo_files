@@ -6,9 +6,9 @@
     "auditLog": "/Users/pubs/Local/01.code/00.lib/hazo_files/test-app/logs/.26ab8637d7fa7fcbdb77f7c0b71190da5bc6a3d2-audit.json",
     "files": [
         {
-            "date": 1768772393031,
-            "name": "/Users/pubs/Local/01.code/00.lib/hazo_files/test-app/logs/hazo-2026-01-19.log",
-            "hash": "39d8b333abf06881090ace593e9d1e26c04078c9f0290c9cbdf450e770af06ca"
+            "date": 1770082697543,
+            "name": "/Users/pubs/Local/01.code/00.lib/hazo_files/test-app/logs/hazo-2026-02-03.log",
+            "hash": "2fbf4e87e772a5b11fd684c11125c2cf9e24a2405993a4fbdc8751af0cf1955e"
         }
     ],
     "hashType": "sha256"

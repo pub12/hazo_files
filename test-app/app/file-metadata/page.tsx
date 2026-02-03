@@ -12,6 +12,7 @@ import {
   Folder,
   Calendar,
   Clock,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -39,6 +40,8 @@ export default function FileMetadataPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<FileMetadataRecord | null>(null);
   const [filterStorage, setFilterStorage] = useState<string>('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   // Fetch records
   const fetchRecords = useCallback(async () => {
@@ -69,6 +72,69 @@ export default function FileMetadataPage() {
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
+
+  // Clear selection when records change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [records]);
+
+  // Toggle single record selection
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Toggle all records selection
+  const toggleSelectAll = () => {
+    if (selectedIds.size === records.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(records.map((r) => r.id)));
+    }
+  };
+
+  // Delete selected records
+  const deleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+
+    const confirmMsg =
+      selectedIds.size === 1
+        ? 'Are you sure you want to delete this record?'
+        : `Are you sure you want to delete ${selectedIds.size} records?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setDeleting(true);
+    setError(null);
+
+    try {
+      const deletePromises = Array.from(selectedIds).map(async (id) => {
+        const response = await fetch(`/api/metadata?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || `Failed to delete record ${id}`);
+        }
+        return id;
+      });
+
+      await Promise.all(deletePromises);
+      setSelectedIds(new Set());
+      await fetchRecords();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete records');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Format date for display
   const formatDate = (dateStr: string) => {
@@ -119,6 +185,18 @@ export default function FileMetadataPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Delete selected button */}
+          {selectedIds.size > 0 && (
+            <Button
+              variant="destructive"
+              onClick={deleteSelected}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              <Trash2 className={`h-4 w-4 mr-2 ${deleting ? 'animate-pulse' : ''}`} />
+              Delete {selectedIds.size} selected
+            </Button>
+          )}
           {/* Storage filter */}
           <select
             value={filterStorage}
@@ -167,6 +245,14 @@ export default function FileMetadataPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
+                  <th className="px-4 py-3 text-left w-10">
+                    <input
+                      type="checkbox"
+                      checked={records.length > 0 && selectedIds.size === records.length}
+                      onChange={toggleSelectAll}
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Storage</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Type</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Filename</th>
@@ -179,10 +265,23 @@ export default function FileMetadataPage() {
                 {records.map((record) => (
                   <tr
                     key={record.id}
-                    onClick={() => setSelectedRecord(record)}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                      selectedIds.has(record.id) ? 'bg-indigo-50' : ''
+                    }`}
                   >
                     <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(record.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleSelection(record.id);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-4 py-3" onClick={() => setSelectedRecord(record)}>
                       <div className="flex items-center gap-2">
                         <StorageIcon type={record.storage_type} />
                         <span className="capitalize">
@@ -190,18 +289,28 @@ export default function FileMetadataPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={() => setSelectedRecord(record)}>
                       <div className="flex items-center gap-2">
                         <FileTypeIcon type={record.file_type} />
                         <span className="capitalize">{record.file_type}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-medium">{record.filename}</td>
-                    <td className="px-4 py-3 text-gray-500 max-w-xs truncate" title={record.file_path}>
+                    <td className="px-4 py-3 font-medium" onClick={() => setSelectedRecord(record)}>
+                      {record.filename}
+                    </td>
+                    <td
+                      className="px-4 py-3 text-gray-500 max-w-xs truncate"
+                      title={record.file_path}
+                      onClick={() => setSelectedRecord(record)}
+                    >
                       {record.file_path}
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{formatDate(record.created_at)}</td>
-                    <td className="px-4 py-3 text-gray-500">{formatDate(record.changed_at)}</td>
+                    <td className="px-4 py-3 text-gray-500" onClick={() => setSelectedRecord(record)}>
+                      {formatDate(record.created_at)}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500" onClick={() => setSelectedRecord(record)}>
+                      {formatDate(record.changed_at)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -210,8 +319,15 @@ export default function FileMetadataPage() {
         )}
 
         {!loading && records.length > 0 && (
-          <div className="mt-3 text-sm text-gray-500">
-            Showing {records.length} record{records.length !== 1 ? 's' : ''}
+          <div className="mt-3 text-sm text-gray-500 flex items-center gap-4">
+            <span>
+              Showing {records.length} record{records.length !== 1 ? 's' : ''}
+            </span>
+            {selectedIds.size > 0 && (
+              <span className="text-indigo-600 font-medium">
+                {selectedIds.size} selected
+              </span>
+            )}
           </div>
         )}
       </div>
