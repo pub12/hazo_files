@@ -50,6 +50,23 @@ npm install server-only       # Server-side safety (recommended)
 # Note: xxhash-wasm is included automatically as a dependency
 ```
 
+### Tailwind CSS v4 Setup (Required for UI Components)
+
+If you're using Tailwind CSS v4 with the UI components, you must add a `@source` directive to your CSS file to ensure Tailwind scans the package's files for utility classes.
+
+Add this to your `globals.css` or main CSS file AFTER the tailwindcss import:
+
+```css
+@import "tailwindcss";
+
+/* Required: Enable Tailwind to scan hazo_files package for utility classes */
+@source "../node_modules/hazo_files/dist/ui";
+```
+
+Without this directive, Tailwind v4's JIT compiler will not generate CSS for the utility classes used in hazo_files components (like `hover:bg-gray-100`, `text-sm`, `rounded-md`, etc.), resulting in broken styling.
+
+**Note**: This is only required for Tailwind v4. Earlier versions of Tailwind automatically scan `node_modules` and do not need this configuration.
+
 ## Quick Start
 
 ### Basic Usage (Server-side)

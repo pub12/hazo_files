@@ -47,7 +47,9 @@ export class LocalStorageModule extends BaseStorageModule {
 
     const localConfig = this.getProviderConfig<LocalStorageConfig>();
     this.basePath = path.resolve(localConfig.basePath);
-    this.allowedExtensions = localConfig.allowedExtensions || [];
+    this.allowedExtensions = (localConfig.allowedExtensions || [])
+      .map(ext => ext.trim().replace(/^\./, '').toLowerCase())
+      .filter(ext => ext.length > 0);
     this.maxFileSize = localConfig.maxFileSize || 0;
 
     // Ensure base directory exists
