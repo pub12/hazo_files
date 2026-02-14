@@ -657,6 +657,33 @@ The `FileInfoPanel` component can be used standalone for displaying file metadat
 
 **Checkpoint**: Naming rule configurator is working.
 
+## Part 4.6: Database Migration for Reference Tracking (Optional)
+
+If you have an existing `hazo_files` table and want to add V2 reference tracking columns:
+
+### 4.6.1 Run V2 Migration
+
+- [ ] Add migration to your app startup or migration script:
+  ```typescript
+  import { migrateToV2, backfillV2Defaults } from 'hazo_files';
+
+  // For SQLite
+  await migrateToV2({ run: (sql) => db.exec(sql) }, 'sqlite');
+  await backfillV2Defaults({ run: (sql) => db.exec(sql) }, 'sqlite');
+
+  // For PostgreSQL
+  await migrateToV2({ run: (sql) => client.query(sql) }, 'postgres');
+  await backfillV2Defaults({ run: (sql) => client.query(sql) }, 'postgres');
+  ```
+
+- [ ] Verify new columns exist: `file_refs`, `ref_count`, `status`, `scope_id`, `uploaded_by`, `storage_verified_at`, `deleted_at`, `original_filename`
+
+- [ ] Verify new indexes: `idx_hazo_files_status`, `idx_hazo_files_scope`, `idx_hazo_files_ref_count`, `idx_hazo_files_deleted`
+
+**Note**: New databases created with `HAZO_FILES_TABLE_SCHEMA` already include V2 columns. Migration is only needed for pre-existing tables.
+
+**Checkpoint**: Database has V2 reference tracking columns.
+
 ## Part 5: Google Drive Setup (Optional)
 
 ### 5.1 Google Cloud Console Setup

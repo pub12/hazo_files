@@ -16,7 +16,9 @@ A powerful, modular file management package for Node.js and React applications w
 - **Extraction Data Management**: Track and manage LLM-extracted metadata with merge strategies
 - **LLM Integration**: Built-in support for hazo_llm_api document/image extraction
 - **Upload + Extract Workflow**: Combined service for uploading files with automatic LLM extraction and naming
+- **File Reference Tracking**: Multi-entity file references with orphan detection, soft delete, and lifecycle management
 - **File Change Detection**: xxHash-based content hashing for efficient change detection
+- **Schema Migrations**: Built-in V2 migration utilities for adding reference tracking to existing databases
 - **TypeScript**: Full type safety and IntelliSense support
 - **OAuth Integration**: Built-in Google Drive OAuth authentication
 - **Progress Tracking**: Upload/download progress callbacks
@@ -1190,6 +1192,101 @@ const autoResult = await extractionService.extract(
   mimeType,
   extractionOptions
 );
+```
+
+## File Reference Tracking
+
+Track which entities (form fields, chat messages, etc.) reference each file. Multiple entities can reference the same file, enabling shared files without duplication.
+
+### Adding and Removing References
+
+```typescript
+import { TrackedFileManager } from 'hazo_files';
+
+// Upload a file with an initial reference
+const result = await trackedManager.uploadFileWithRef(buffer, '/docs/report.pdf', {
+  scope_id: 'workspace-123',
+  uploaded_by: 'user-456',
+  ref: {
+    entity_type: 'form_field',
+    entity_id: 'field-789',
+    created_by: 'user-456',
+  },
+});
+// result.data.file_id, result.data.ref_id
+
+// Add another reference to the same file
+await trackedManager.addRef(fileId, {
+  entity_type: 'chat_message',
+  entity_id: 'msg-abc',
+});
+
+// Remove a specific reference
+const { remaining_refs } = await trackedManager.removeRef(fileId, refId);
+
+// Get file with status info
+const fileStatus = await trackedManager.getFileById(fileId);
+// { record, refs: FileRef[], is_orphaned: boolean }
+```
+
+### Orphan Detection and Cleanup
+
+```typescript
+// Find files with zero references
+const orphans = await trackedManager.findOrphanedFiles({
+  olderThanMs: 7 * 24 * 60 * 60 * 1000, // 7 days old
+  scope_id: 'workspace-123',
+});
+
+// Clean up orphaned files (delete physical files + DB records)
+const { cleaned, errors } = await trackedManager.cleanupOrphanedFiles({
+  olderThanMs: 30 * 24 * 60 * 60 * 1000,
+  softDeleteOnly: false, // true to only mark as soft_deleted
+});
+
+// Soft-delete a specific file
+await trackedManager.softDeleteFile(fileId);
+
+// Verify physical file existence
+const exists = await trackedManager.verifyFileExistence(fileId);
+```
+
+### Database Migration (Existing Databases)
+
+If you have an existing `hazo_files` table, run the V2 migration to add reference tracking columns:
+
+```typescript
+import { migrateToV2, backfillV2Defaults, HAZO_FILES_MIGRATION_V2 } from 'hazo_files';
+
+// Using the migration helper
+await migrateToV2(
+  { run: (sql) => db.exec(sql) }, // SQLite
+  'sqlite'
+);
+await backfillV2Defaults({ run: (sql) => db.exec(sql) }, 'sqlite');
+
+// Or run statements manually
+for (const stmt of HAZO_FILES_MIGRATION_V2.sqlite.alterStatements) {
+  try { await db.run(stmt); } catch { /* column exists */ }
+}
+for (const idx of HAZO_FILES_MIGRATION_V2.sqlite.indexes) {
+  await db.run(idx);
+}
+```
+
+New tables created with `HAZO_FILES_TABLE_SCHEMA` already include V2 columns.
+
+### Reference Tracking Types
+
+```typescript
+import type {
+  FileRef,           // Individual reference from entity to file
+  FileMetadataRecordV2,  // Extended record with refs, status, scope
+  FileWithStatus,    // Rich view: record + parsed refs + is_orphaned
+  FileStatus,        // 'active' | 'orphaned' | 'soft_deleted' | 'missing'
+  AddRefOptions,     // Options for adding a reference
+  RemoveRefsCriteria, // Criteria for bulk ref removal
+} from 'hazo_files';
 ```
 
 ## File Change Detection

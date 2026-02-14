@@ -47,6 +47,12 @@ export interface FileMetadataInput {
   file_hash?: string;
   /** File size in bytes */
   file_size?: number;
+  /** Scope ID for organizational grouping (V2) */
+  scope_id?: string;
+  /** User who uploaded the file (V2) */
+  uploaded_by?: string;
+  /** Original filename at upload time (V2) */
+  original_filename?: string;
 }
 
 /**

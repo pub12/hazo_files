@@ -43,7 +43,15 @@ export {
   HAZO_FILES_NAMING_TABLE_SCHEMA,
   HAZO_FILES_NAMING_DEFAULT_TABLE_NAME,
   getNamingSchemaForTable,
+  HAZO_FILES_MIGRATION_V2,
+  getMigrationForTable,
 } from './schema';
+
+// Migration utilities
+export {
+  migrateToV2,
+  backfillV2Defaults,
+} from './migrations';
 
 // Modules
 export {
@@ -162,6 +170,15 @@ export {
   computeFileHashFromStream,
   hashesEqual,
   hasFileContentChanged,
+  // Reference tracking utilities
+  generateRefId,
+  parseFileRefs,
+  stringifyFileRefs,
+  createFileRef,
+  removeRefFromArray,
+  removeRefsByCriteriaFromArray,
+  toV2Record,
+  buildFileWithStatus,
 } from './common';
 
 // Types
@@ -213,6 +230,17 @@ export type {
   NamingConventionUpdate,
   ParsedNamingConvention,
   ListNamingConventionsOptions,
+  // Reference tracking types
+  FileStatus,
+  FileRefVisibility,
+  FileRef,
+  FileMetadataRecordV2,
+  AddRefOptions,
+  RemoveRefsCriteria,
+  FileWithStatus,
+  FindOrphanedOptions,
+  CleanupOrphanedOptions,
+  UploadWithRefOptions,
 } from './types';
 
 export type {
@@ -239,5 +267,8 @@ export type {
   DatabaseSchemaDefinition,
   HazoFilesColumnDefinitions,
   HazoFilesNamingColumnDefinitions,
+  HazoFilesMigrationV2,
+  MigrationSchemaDefinition,
 } from './schema';
+export type { MigrationExecutor } from './migrations';
 export type { FileInfo } from './common/hash-utils';

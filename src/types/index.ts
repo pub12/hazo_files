@@ -214,3 +214,17 @@ export type {
   ParsedNamingConvention,
   ListNamingConventionsOptions,
 } from './naming-convention';
+
+// Reference tracking types
+export type {
+  FileStatus,
+  FileRefVisibility,
+  FileRef,
+  FileMetadataRecordV2,
+  AddRefOptions,
+  RemoveRefsCriteria,
+  FileWithStatus,
+  FindOrphanedOptions,
+  CleanupOrphanedOptions,
+  UploadWithRefOptions,
+} from './reference-tracking';

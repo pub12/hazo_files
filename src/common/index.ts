@@ -20,3 +20,4 @@ export * from './base-module';
 export * from './naming-utils';
 export * from './file-data-utils';
 export * from './hash-utils';
+export * from './ref-utils';

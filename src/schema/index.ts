@@ -48,6 +48,22 @@ export interface HazoFilesColumnDefinitions {
   file_size: 'INTEGER' | 'BIGINT';
   /** ISO timestamp when file content last changed */
   file_changed_at: 'TEXT' | 'TIMESTAMP';
+  /** JSON string of FileRef[] - reference tracking (V2) */
+  file_refs: 'TEXT';
+  /** Number of active references (V2) */
+  ref_count: 'INTEGER';
+  /** File status: active, orphaned, soft_deleted, missing (V2) */
+  status: 'TEXT';
+  /** Scope ID for organizational grouping (V2) */
+  scope_id: 'TEXT' | 'UUID';
+  /** User who uploaded the file (V2) */
+  uploaded_by: 'TEXT' | 'UUID';
+  /** ISO timestamp when storage was last verified (V2) */
+  storage_verified_at: 'TEXT' | 'TIMESTAMP';
+  /** ISO timestamp when file was soft-deleted (V2) */
+  deleted_at: 'TEXT' | 'TIMESTAMP';
+  /** Original filename at upload time (V2) */
+  original_filename: 'TEXT';
 }
 
 /**
@@ -120,13 +136,25 @@ export const HAZO_FILES_TABLE_SCHEMA: HazoFilesTableSchema = {
   storage_type TEXT NOT NULL,
   file_hash TEXT,
   file_size INTEGER,
-  file_changed_at TEXT
+  file_changed_at TEXT,
+  file_refs TEXT DEFAULT '[]',
+  ref_count INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'active',
+  scope_id TEXT,
+  uploaded_by TEXT,
+  storage_verified_at TEXT,
+  deleted_at TEXT,
+  original_filename TEXT
 )`,
     indexes: [
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_path ON hazo_files (file_path)',
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_storage ON hazo_files (storage_type)',
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_hazo_files_path_storage ON hazo_files (file_path, storage_type)',
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_hash ON hazo_files (file_hash)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_status ON hazo_files (status)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_scope ON hazo_files (scope_id)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_ref_count ON hazo_files (ref_count)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_deleted ON hazo_files (deleted_at)',
     ],
   },
 
@@ -142,13 +170,25 @@ export const HAZO_FILES_TABLE_SCHEMA: HazoFilesTableSchema = {
   storage_type TEXT NOT NULL,
   file_hash TEXT,
   file_size BIGINT,
-  file_changed_at TIMESTAMP WITH TIME ZONE
+  file_changed_at TIMESTAMP WITH TIME ZONE,
+  file_refs TEXT DEFAULT '[]',
+  ref_count INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'active',
+  scope_id UUID,
+  uploaded_by UUID,
+  storage_verified_at TIMESTAMP WITH TIME ZONE,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  original_filename TEXT
 )`,
     indexes: [
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_path ON hazo_files (file_path)',
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_storage ON hazo_files (storage_type)',
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_hazo_files_path_storage ON hazo_files (file_path, storage_type)',
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_hash ON hazo_files (file_hash)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_status ON hazo_files (status)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_scope ON hazo_files (scope_id)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_ref_count ON hazo_files (ref_count)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_deleted ON hazo_files (deleted_at)',
     ],
   },
 
@@ -164,6 +204,14 @@ export const HAZO_FILES_TABLE_SCHEMA: HazoFilesTableSchema = {
     'file_hash',
     'file_size',
     'file_changed_at',
+    'file_refs',
+    'ref_count',
+    'status',
+    'scope_id',
+    'uploaded_by',
+    'storage_verified_at',
+    'deleted_at',
+    'original_filename',
   ] as const,
 };
 
@@ -186,6 +234,142 @@ export function getSchemaForTable(
     indexes: schema.indexes.map((idx) =>
       idx.replace(new RegExp(defaultName, 'g'), tableName)
     ),
+  };
+}
+
+// ============================================
+// V2 Migration (Reference Tracking)
+// ============================================
+
+/**
+ * Migration schema for adding V2 reference tracking columns to existing tables.
+ * Idempotent — safe to run multiple times (uses IF NOT EXISTS for indexes,
+ * and ALTER TABLE ADD COLUMN is ignored if column exists in SQLite).
+ *
+ * For PostgreSQL, columns are added with IF NOT EXISTS (PG 9.6+).
+ *
+ * @example
+ * ```typescript
+ * import { HAZO_FILES_MIGRATION_V2 } from 'hazo_files';
+ *
+ * // SQLite
+ * for (const stmt of HAZO_FILES_MIGRATION_V2.sqlite.alterStatements) {
+ *   try { await db.run(stmt); } catch { /* column already exists *\/ }
+ * }
+ * for (const idx of HAZO_FILES_MIGRATION_V2.sqlite.indexes) {
+ *   await db.run(idx);
+ * }
+ *
+ * // PostgreSQL
+ * for (const stmt of HAZO_FILES_MIGRATION_V2.postgres.alterStatements) {
+ *   await client.query(stmt);
+ * }
+ * for (const idx of HAZO_FILES_MIGRATION_V2.postgres.indexes) {
+ *   await client.query(idx);
+ * }
+ * ```
+ */
+export interface MigrationSchemaDefinition {
+  /** ALTER TABLE statements to add new columns */
+  alterStatements: string[];
+  /** CREATE INDEX statements for new columns */
+  indexes: string[];
+  /** UPDATE statement to backfill defaults for existing records */
+  backfill: string;
+}
+
+export interface HazoFilesMigrationV2 {
+  /** Default table name */
+  tableName: string;
+  /** SQLite migration statements */
+  sqlite: MigrationSchemaDefinition;
+  /** PostgreSQL migration statements */
+  postgres: MigrationSchemaDefinition;
+  /** New column names added in V2 */
+  newColumns: readonly string[];
+}
+
+export const HAZO_FILES_MIGRATION_V2: HazoFilesMigrationV2 = {
+  tableName: HAZO_FILES_DEFAULT_TABLE_NAME,
+
+  sqlite: {
+    alterStatements: [
+      "ALTER TABLE hazo_files ADD COLUMN file_refs TEXT DEFAULT '[]'",
+      'ALTER TABLE hazo_files ADD COLUMN ref_count INTEGER DEFAULT 0',
+      "ALTER TABLE hazo_files ADD COLUMN status TEXT DEFAULT 'active'",
+      'ALTER TABLE hazo_files ADD COLUMN scope_id TEXT',
+      'ALTER TABLE hazo_files ADD COLUMN uploaded_by TEXT',
+      'ALTER TABLE hazo_files ADD COLUMN storage_verified_at TEXT',
+      'ALTER TABLE hazo_files ADD COLUMN deleted_at TEXT',
+      'ALTER TABLE hazo_files ADD COLUMN original_filename TEXT',
+    ],
+    indexes: [
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_status ON hazo_files (status)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_scope ON hazo_files (scope_id)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_ref_count ON hazo_files (ref_count)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_deleted ON hazo_files (deleted_at)',
+    ],
+    backfill: `UPDATE hazo_files SET
+  file_refs = COALESCE(file_refs, '[]'),
+  ref_count = COALESCE(ref_count, 0),
+  status = COALESCE(status, 'active')
+WHERE file_refs IS NULL OR ref_count IS NULL OR status IS NULL`,
+  },
+
+  postgres: {
+    alterStatements: [
+      "ALTER TABLE hazo_files ADD COLUMN IF NOT EXISTS file_refs TEXT DEFAULT '[]'",
+      'ALTER TABLE hazo_files ADD COLUMN IF NOT EXISTS ref_count INTEGER DEFAULT 0',
+      "ALTER TABLE hazo_files ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active'",
+      'ALTER TABLE hazo_files ADD COLUMN IF NOT EXISTS scope_id UUID',
+      'ALTER TABLE hazo_files ADD COLUMN IF NOT EXISTS uploaded_by UUID',
+      'ALTER TABLE hazo_files ADD COLUMN IF NOT EXISTS storage_verified_at TIMESTAMP WITH TIME ZONE',
+      'ALTER TABLE hazo_files ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE',
+      'ALTER TABLE hazo_files ADD COLUMN IF NOT EXISTS original_filename TEXT',
+    ],
+    indexes: [
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_status ON hazo_files (status)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_scope ON hazo_files (scope_id)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_ref_count ON hazo_files (ref_count)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_deleted ON hazo_files (deleted_at)',
+    ],
+    backfill: `UPDATE hazo_files SET
+  file_refs = COALESCE(file_refs, '[]'),
+  ref_count = COALESCE(ref_count, 0),
+  status = COALESCE(status, 'active')
+WHERE file_refs IS NULL OR ref_count IS NULL OR status IS NULL`,
+  },
+
+  newColumns: [
+    'file_refs',
+    'ref_count',
+    'status',
+    'scope_id',
+    'uploaded_by',
+    'storage_verified_at',
+    'deleted_at',
+    'original_filename',
+  ] as const,
+};
+
+/**
+ * Get migration statements for a custom table name
+ */
+export function getMigrationForTable(
+  tableName: string,
+  dbType: 'sqlite' | 'postgres'
+): MigrationSchemaDefinition {
+  const migration = HAZO_FILES_MIGRATION_V2[dbType];
+  const defaultName = HAZO_FILES_MIGRATION_V2.tableName;
+
+  return {
+    alterStatements: migration.alterStatements.map((stmt) =>
+      stmt.replace(new RegExp(defaultName, 'g'), tableName)
+    ),
+    indexes: migration.indexes.map((idx) =>
+      idx.replace(new RegExp(defaultName, 'g'), tableName)
+    ),
+    backfill: migration.backfill.replace(new RegExp(defaultName, 'g'), tableName),
   };
 }
 

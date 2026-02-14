@@ -16,6 +16,11 @@ import type {
   RenameOptions,
   FileMetadataRecord,
   DatabaseTrackingConfig,
+  AddRefOptions,
+  FileWithStatus,
+  FindOrphanedOptions,
+  CleanupOrphanedOptions,
+  UploadWithRefOptions,
 } from '../types';
 import { getMimeType } from '../common/mime-types';
 import { computeFileInfo, hasFileContentChanged } from '../common/hash-utils';
@@ -426,6 +431,175 @@ export class TrackedFileManager extends FileManager {
 
     const record = await this.metadataService!.findByPath(path, this.getStorageType());
     return record?.file_size ?? null;
+  }
+
+  // ============ Reference Tracking Methods (V2) ============
+
+  /**
+   * Add a reference to a file
+   */
+  async addRef(
+    fileId: string,
+    options: AddRefOptions
+  ): Promise<{ ref_id: string } | null> {
+    if (!this.isTrackingEnabled()) return null;
+    return this.metadataService!.addRef(fileId, options);
+  }
+
+  /**
+   * Remove a reference from a file
+   */
+  async removeRef(
+    fileId: string,
+    refId: string
+  ): Promise<{ remaining_refs: number } | null> {
+    if (!this.isTrackingEnabled()) return null;
+    return this.metadataService!.removeRef(fileId, refId);
+  }
+
+  /**
+   * Get a file by its database ID with status information
+   */
+  async getFileById(fileId: string): Promise<FileWithStatus | null> {
+    if (!this.isTrackingEnabled()) return null;
+    return this.metadataService!.getFileWithStatus(fileId);
+  }
+
+  /**
+   * Get multiple files by their database IDs with status information
+   */
+  async getFilesById(fileIds: string[]): Promise<FileWithStatus[]> {
+    if (!this.isTrackingEnabled()) return [];
+    return this.metadataService!.getFilesWithStatus(fileIds);
+  }
+
+  /**
+   * Soft-delete a file (marks as soft_deleted, does not remove physical file)
+   */
+  async softDeleteFile(fileId: string): Promise<boolean> {
+    if (!this.isTrackingEnabled()) return false;
+    return this.metadataService!.softDelete(fileId);
+  }
+
+  /**
+   * Find orphaned files (files with zero references)
+   */
+  async findOrphanedFiles(options?: FindOrphanedOptions): Promise<FileWithStatus[]> {
+    if (!this.isTrackingEnabled()) return [];
+    return this.metadataService!.findOrphaned(options);
+  }
+
+  /**
+   * Cleanup orphaned files — removes physical files and/or DB records
+   */
+  async cleanupOrphanedFiles(
+    options?: CleanupOrphanedOptions
+  ): Promise<{ cleaned: number; errors: string[] }> {
+    if (!this.isTrackingEnabled()) return { cleaned: 0, errors: [] };
+
+    const orphaned = await this.metadataService!.findOrphaned(options);
+    let cleaned = 0;
+    const errors: string[] = [];
+
+    for (const file of orphaned) {
+      try {
+        if (options?.softDeleteOnly) {
+          await this.metadataService!.softDelete(file.record.id);
+          cleaned++;
+          continue;
+        }
+
+        const deletePhysical = options?.deletePhysicalFiles !== false;
+        if (deletePhysical) {
+          // Delete physical file
+          const deleteResult = await super.deleteFile(file.record.file_path);
+          if (!deleteResult.success) {
+            // Physical file might already be gone — that's okay
+            if (deleteResult.error && !deleteResult.error.includes('not found')) {
+              errors.push(`Failed to delete physical file ${file.record.file_path}: ${deleteResult.error}`);
+            }
+          }
+        }
+
+        // Delete DB record
+        await this.metadataService!.recordDelete(file.record.file_path, file.record.storage_type);
+        cleaned++;
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        errors.push(`Error cleaning up ${file.record.file_path}: ${msg}`);
+      }
+    }
+
+    return { cleaned, errors };
+  }
+
+  /**
+   * Verify that a file's physical storage exists and update its status
+   */
+  async verifyFileExistence(fileId: string): Promise<boolean | null> {
+    if (!this.isTrackingEnabled()) return null;
+
+    const record = await this.metadataService!.findById(fileId);
+    if (!record) return null;
+
+    const fileExists = await this.exists(record.file_path);
+    const timestamp = new Date().toISOString();
+
+    await this.metadataService!.updateFields(fileId, {
+      storage_verified_at: timestamp,
+      ...(fileExists ? {} : { status: 'missing' as const }),
+    });
+
+    return fileExists;
+  }
+
+  /**
+   * Upload a file and optionally add an initial reference
+   */
+  async uploadFileWithRef(
+    source: string | Buffer | ReadableStream,
+    remotePath: string,
+    options?: TrackedUploadOptions & UploadWithRefOptions
+  ): Promise<OperationResult<FileItem & { file_id?: string; ref_id?: string }>> {
+    // Ensure we await recording so we have the record ID
+    const uploadResult = await this.uploadFile(source, remotePath, {
+      ...options,
+      awaitRecording: true,
+    });
+
+    if (!uploadResult.success || !uploadResult.data || !this.isTrackingEnabled()) {
+      return uploadResult as OperationResult<FileItem & { file_id?: string; ref_id?: string }>;
+    }
+
+    // Find the just-created record
+    const record = await this.metadataService!.findByPath(remotePath, this.getStorageType());
+    if (!record) {
+      return uploadResult as OperationResult<FileItem & { file_id?: string; ref_id?: string }>;
+    }
+
+    // Update V2 fields if provided
+    const fieldsToUpdate: Record<string, string> = {};
+    if (options?.scope_id) fieldsToUpdate.scope_id = options.scope_id;
+    if (options?.uploaded_by) fieldsToUpdate.uploaded_by = options.uploaded_by;
+    if (Object.keys(fieldsToUpdate).length > 0) {
+      await this.metadataService!.updateFields(record.id, fieldsToUpdate);
+    }
+
+    // Add ref if specified
+    let refId: string | undefined;
+    if (options?.ref) {
+      const refResult = await this.metadataService!.addRef(record.id, options.ref);
+      if (refResult) refId = refResult.ref_id;
+    }
+
+    return {
+      success: true,
+      data: {
+        ...uploadResult.data,
+        file_id: record.id,
+        ref_id: refId,
+      },
+    };
   }
 }
 

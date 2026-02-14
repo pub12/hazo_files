@@ -12,6 +12,13 @@ import type {
   ExtractionData,
   AddExtractionOptions,
   RemoveExtractionOptions,
+  FileRef,
+  FileMetadataRecordV2,
+  FileWithStatus,
+  AddRefOptions,
+  RemoveRefsCriteria,
+  FileStatus,
+  FindOrphanedOptions,
 } from '../types';
 import { getBaseName, getDirName } from '../common/path-utils';
 import {
@@ -25,6 +32,15 @@ import {
   getExtractionById as getExtractionByIdUtil,
   createEmptyFileDataStructure,
 } from '../common/file-data-utils';
+import {
+  parseFileRefs,
+  stringifyFileRefs,
+  createFileRef,
+  removeRefFromArray,
+  removeRefsByCriteriaFromArray,
+  toV2Record,
+  buildFileWithStatus,
+} from '../common/ref-utils';
 
 /**
  * Logger interface compatible with hazo_connect
@@ -151,7 +167,7 @@ export class FileMetadataService {
   ): Promise<FileMetadataRecord | null> {
     try {
       const timestamp = this.now();
-      const record: Omit<FileMetadataRecord, 'id'> = {
+      const record: Record<string, unknown> = {
         filename: input.filename,
         file_type: input.file_type,
         file_data: JSON.stringify(input.file_data || {}),
@@ -161,8 +177,17 @@ export class FileMetadataService {
         changed_at: timestamp,
         file_hash: input.file_hash || null,
         file_size: input.file_size ?? null,
-        file_changed_at: input.file_hash ? timestamp : null, // Set content changed time if hash is provided
+        file_changed_at: input.file_hash ? timestamp : null,
+        // V2 defaults — included conditionally to avoid breaking pre-migration DBs
+        file_refs: '[]',
+        ref_count: 0,
+        status: 'active',
       };
+
+      // Optional V2 fields
+      if (input.scope_id !== undefined) record.scope_id = input.scope_id;
+      if (input.uploaded_by !== undefined) record.uploaded_by = input.uploaded_by;
+      if (input.original_filename !== undefined) record.original_filename = input.original_filename;
 
       const results = await this.crud.insert(record as Partial<FileMetadataRecord>);
       this.logger?.debug?.('Recorded file upload', { path: input.file_path });
@@ -622,6 +647,306 @@ export class FileMetadataService {
     } catch (error) {
       this.logError('clearExtractions', error);
       return false;
+    }
+  }
+
+  // ============================================
+  // Reference Tracking Methods (V2)
+  // ============================================
+
+  /**
+   * Find a record by ID
+   */
+  async findById(id: string): Promise<FileMetadataRecord | null> {
+    try {
+      const results = await this.crud.findBy({ id });
+      return results[0] || null;
+    } catch (error) {
+      this.logError('findById', error);
+      return null;
+    }
+  }
+
+  /**
+   * Find multiple records by IDs
+   */
+  async findByIds(ids: string[]): Promise<FileMetadataRecord[]> {
+    try {
+      const results: FileMetadataRecord[] = [];
+      for (const id of ids) {
+        const record = await this.findById(id);
+        if (record) results.push(record);
+      }
+      return results;
+    } catch (error) {
+      this.logError('findByIds', error);
+      return [];
+    }
+  }
+
+  /**
+   * Add a reference to a file
+   * @returns The new ref_id, or null on failure
+   */
+  async addRef(
+    fileId: string,
+    options: AddRefOptions
+  ): Promise<{ ref_id: string } | null> {
+    try {
+      const record = await this.findById(fileId);
+      if (!record) {
+        this.logger?.warn?.('Cannot add ref: file not found', { fileId });
+        return null;
+      }
+
+      const v2 = toV2Record(record);
+      const refs = parseFileRefs(v2.file_refs);
+      const newRef = createFileRef(options);
+      const updatedRefs = [...refs, newRef];
+
+      await this.crud.updateById(fileId, {
+        file_refs: stringifyFileRefs(updatedRefs),
+        ref_count: updatedRefs.length,
+        status: 'active',
+        changed_at: this.now(),
+      } as Partial<FileMetadataRecord>);
+
+      this.logger?.debug?.('Added ref', { fileId, ref_id: newRef.ref_id });
+      return { ref_id: newRef.ref_id };
+    } catch (error) {
+      this.logError('addRef', error);
+      return null;
+    }
+  }
+
+  /**
+   * Remove a specific reference from a file
+   * @returns Remaining ref count, or null on failure
+   */
+  async removeRef(
+    fileId: string,
+    refId: string
+  ): Promise<{ remaining_refs: number } | null> {
+    try {
+      const record = await this.findById(fileId);
+      if (!record) {
+        this.logger?.warn?.('Cannot remove ref: file not found', { fileId });
+        return null;
+      }
+
+      const v2 = toV2Record(record);
+      const refs = parseFileRefs(v2.file_refs);
+      const updatedRefs = removeRefFromArray(refs, refId);
+
+      await this.crud.updateById(fileId, {
+        file_refs: stringifyFileRefs(updatedRefs),
+        ref_count: updatedRefs.length,
+        changed_at: this.now(),
+      } as Partial<FileMetadataRecord>);
+
+      this.logger?.debug?.('Removed ref', { fileId, refId, remaining: updatedRefs.length });
+      return { remaining_refs: updatedRefs.length };
+    } catch (error) {
+      this.logError('removeRef', error);
+      return null;
+    }
+  }
+
+  /**
+   * Remove references matching criteria across all records.
+   * Scans all records and removes matching refs (AND semantics).
+   */
+  async removeRefsByCriteria(
+    criteria: RemoveRefsCriteria
+  ): Promise<{ removed_count: number }> {
+    try {
+      let totalRemoved = 0;
+
+      // If file_id specified, only scan that record
+      if (criteria.file_id) {
+        const record = await this.findById(criteria.file_id);
+        if (record) {
+          const removed = await this.removeRefsFromRecord(record, criteria);
+          totalRemoved += removed;
+        }
+        return { removed_count: totalRemoved };
+      }
+
+      // Otherwise scan all records (optionally filtered by scope)
+      let records: FileMetadataRecord[];
+      if (criteria.scope_id) {
+        records = await this.crud.findBy({ scope_id: criteria.scope_id });
+      } else {
+        records = await this.crud.list();
+      }
+
+      for (const record of records) {
+        const removed = await this.removeRefsFromRecord(record, criteria);
+        totalRemoved += removed;
+      }
+
+      this.logger?.debug?.('Removed refs by criteria', { criteria, removed_count: totalRemoved });
+      return { removed_count: totalRemoved };
+    } catch (error) {
+      this.logError('removeRefsByCriteria', error);
+      return { removed_count: 0 };
+    }
+  }
+
+  /**
+   * Helper: remove matching refs from a single record
+   */
+  private async removeRefsFromRecord(
+    record: FileMetadataRecord,
+    criteria: RemoveRefsCriteria
+  ): Promise<number> {
+    const v2 = toV2Record(record);
+    const refs = parseFileRefs(v2.file_refs);
+    if (refs.length === 0) return 0;
+
+    const updatedRefs = removeRefsByCriteriaFromArray(refs, {
+      entity_type: criteria.entity_type,
+      entity_id: criteria.entity_id,
+    });
+
+    const removedCount = refs.length - updatedRefs.length;
+    if (removedCount > 0) {
+      await this.crud.updateById(record.id, {
+        file_refs: stringifyFileRefs(updatedRefs),
+        ref_count: updatedRefs.length,
+        changed_at: this.now(),
+      } as Partial<FileMetadataRecord>);
+    }
+
+    return removedCount;
+  }
+
+  /**
+   * Get all references for a file
+   */
+  async getRefs(fileId: string): Promise<FileRef[] | null> {
+    try {
+      const record = await this.findById(fileId);
+      if (!record) return null;
+      return parseFileRefs(toV2Record(record).file_refs);
+    } catch (error) {
+      this.logError('getRefs', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get a file with its status and parsed refs
+   */
+  async getFileWithStatus(fileId: string): Promise<FileWithStatus | null> {
+    try {
+      const record = await this.findById(fileId);
+      if (!record) return null;
+      return buildFileWithStatus(record);
+    } catch (error) {
+      this.logError('getFileWithStatus', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get multiple files with status
+   */
+  async getFilesWithStatus(fileIds: string[]): Promise<FileWithStatus[]> {
+    try {
+      const records = await this.findByIds(fileIds);
+      return records.map(buildFileWithStatus);
+    } catch (error) {
+      this.logError('getFilesWithStatus', error);
+      return [];
+    }
+  }
+
+  /**
+   * Update the status of a file
+   */
+  async updateStatus(fileId: string, status: FileStatus): Promise<boolean> {
+    try {
+      const patch: Record<string, unknown> = {
+        status,
+        changed_at: this.now(),
+      };
+      if (status === 'soft_deleted') {
+        patch.deleted_at = this.now();
+      }
+      await this.crud.updateById(fileId, patch as Partial<FileMetadataRecord>);
+      this.logger?.debug?.('Updated status', { fileId, status });
+      return true;
+    } catch (error) {
+      this.logError('updateStatus', error);
+      return false;
+    }
+  }
+
+  /**
+   * Soft-delete a file (set status to soft_deleted, record deleted_at)
+   */
+  async softDelete(fileId: string): Promise<boolean> {
+    return this.updateStatus(fileId, 'soft_deleted');
+  }
+
+  /**
+   * Update specific V2 fields on a record
+   */
+  async updateFields(
+    fileId: string,
+    fields: Partial<Pick<FileMetadataRecordV2, 'scope_id' | 'uploaded_by' | 'original_filename' | 'storage_verified_at' | 'status'>>
+  ): Promise<boolean> {
+    try {
+      await this.crud.updateById(fileId, {
+        ...fields,
+        changed_at: this.now(),
+      } as Partial<FileMetadataRecord>);
+      this.logger?.debug?.('Updated fields', { fileId, fields: Object.keys(fields) });
+      return true;
+    } catch (error) {
+      this.logError('updateFields', error);
+      return false;
+    }
+  }
+
+  /**
+   * Find orphaned files (zero references)
+   */
+  async findOrphaned(options?: FindOrphanedOptions): Promise<FileWithStatus[]> {
+    try {
+      let records: FileMetadataRecord[];
+
+      if (options?.scope_id) {
+        records = await this.crud.findBy({ scope_id: options.scope_id });
+      } else if (options?.storage_type) {
+        records = await this.crud.findBy({ storage_type: options.storage_type });
+      } else {
+        records = await this.crud.list();
+      }
+
+      let orphaned = records
+        .map(buildFileWithStatus)
+        .filter((f) => f.is_orphaned && f.record.status !== 'soft_deleted');
+
+      // Filter by age if specified
+      if (options?.olderThanMs) {
+        const cutoff = Date.now() - options.olderThanMs;
+        orphaned = orphaned.filter((f) => {
+          const createdAt = new Date(f.record.created_at).getTime();
+          return createdAt < cutoff;
+        });
+      }
+
+      // Apply limit
+      if (options?.limit && orphaned.length > options.limit) {
+        orphaned = orphaned.slice(0, options.limit);
+      }
+
+      return orphaned;
+    } catch (error) {
+      this.logError('findOrphaned', error);
+      return [];
     }
   }
 }
