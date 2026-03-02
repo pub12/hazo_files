@@ -684,6 +684,27 @@ If you have an existing `hazo_files` table and want to add V2 reference tracking
 
 **Checkpoint**: Database has V2 reference tracking columns.
 
+### 4.6.2 Run V3 Migration (Content Tagging)
+
+- [ ] Add V3 migration for content tagging column:
+  ```typescript
+  import { migrateToV3 } from 'hazo_files';
+
+  // For SQLite
+  await migrateToV3({ run: (sql) => db.run(sql) }, 'sqlite');
+
+  // For PostgreSQL
+  await migrateToV3({ run: (sql) => client.query(sql) }, 'postgres');
+  ```
+
+- [ ] Verify new column exists: `content_tag`
+
+- [ ] Verify new index: `idx_hazo_files_content_tag`
+
+**Note**: New databases already include the `content_tag` column. Migration is only needed for pre-V3 tables.
+
+**Checkpoint**: Database has V3 content tagging column.
+
 ## Part 5: Google Drive Setup (Optional)
 
 ### 5.1 Google Cloud Console Setup

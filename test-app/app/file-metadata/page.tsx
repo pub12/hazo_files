@@ -25,6 +25,7 @@ interface FileMetadataRecord {
   changed_at: string;
   file_path: string;
   storage_type: 'local' | 'google_drive';
+  content_tag?: string | null;
 }
 
 interface ApiResponse {
@@ -257,6 +258,7 @@ export default function FileMetadataPage() {
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Type</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Filename</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Path</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Content Tag</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Created</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Modified</th>
                 </tr>
@@ -304,6 +306,15 @@ export default function FileMetadataPage() {
                       onClick={() => setSelectedRecord(record)}
                     >
                       {record.file_path}
+                    </td>
+                    <td className="px-4 py-3" onClick={() => setSelectedRecord(record)}>
+                      {record.content_tag ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                          {record.content_tag}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs italic">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-500" onClick={() => setSelectedRecord(record)}>
                       {formatDate(record.created_at)}
@@ -410,6 +421,20 @@ export default function FileMetadataPage() {
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="h-4 w-4 text-gray-400" />
                     <span>{formatDate(selectedRecord.changed_at)}</span>
+                  </div>
+                </div>
+
+                {/* Content Tag */}
+                <div className="flex items-start gap-4">
+                  <span className="w-32 text-sm font-medium text-gray-500">Content Tag</span>
+                  <div className="flex-1">
+                    {selectedRecord.content_tag ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                        {selectedRecord.content_tag}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-400 italic">Not tagged</span>
+                    )}
                   </div>
                 </div>
 

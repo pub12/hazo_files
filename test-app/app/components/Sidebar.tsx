@@ -18,6 +18,7 @@ import {
   Upload,
   Bot,
   MessageSquare,
+  Tag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -74,6 +75,11 @@ const menuItems = [
     title: 'Upload & Extract',
     icon: Upload,
     href: '/upload-extract',
+  },
+  {
+    title: 'Content Tag',
+    icon: Tag,
+    href: '/content-tag',
   },
   {
     title: 'LLM API',

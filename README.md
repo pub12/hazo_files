@@ -18,7 +18,8 @@ A powerful, modular file management package for Node.js and React applications w
 - **Upload + Extract Workflow**: Combined service for uploading files with automatic LLM extraction and naming
 - **File Reference Tracking**: Multi-entity file references with orphan detection, soft delete, and lifecycle management
 - **File Change Detection**: xxHash-based content hashing for efficient change detection
-- **Schema Migrations**: Built-in V2 migration utilities for adding reference tracking to existing databases
+- **Content Tagging**: Optional LLM-based content classification at upload time or on-demand via `content_tag` field
+- **Schema Migrations**: Built-in V2/V3 migration utilities for adding reference tracking and content tagging to existing databases
 - **TypeScript**: Full type safety and IntelliSense support
 - **OAuth Integration**: Built-in Google Drive OAuth authentication
 - **Progress Tracking**: Upload/download progress callbacks
@@ -1108,11 +1109,17 @@ const extractionService = new LLMExtractionService((provider, options) => {
   return createLLM({ provider, ...options });
 }, 'gemini');
 
-// Create upload + extract service
+// Create upload + extract service (with optional content tag config)
 const uploadExtract = new UploadExtractService(
   trackedFileManager,
   namingService,
-  extractionService
+  extractionService,
+  {
+    content_tag_set_by_llm: true,
+    content_tag_prompt_area: 'classification',
+    content_tag_prompt_key: 'classify_document',
+    content_tag_prompt_return_fieldname: 'document_type',
+  }
 );
 
 // Upload with extraction and naming convention
@@ -1140,6 +1147,8 @@ if (result.success) {
   console.log('Uploaded to:', result.generatedPath);
   // e.g., '/documents/2024/ACME/ACME_Q4_2024-12-09_001.pdf'
   console.log('Extracted data:', result.extraction?.data);
+  console.log('Content tag:', result.contentTag);
+  // e.g., 'invoice', 'report', 'contract'
 }
 
 // Generate path preview without uploading
@@ -1193,6 +1202,74 @@ const autoResult = await extractionService.extract(
   extractionOptions
 );
 ```
+
+## Content Tagging
+
+Automatically classify uploaded files using LLM-based content analysis. The `content_tag` field stores a classification string (e.g., "invoice", "report", "contract") determined by an LLM prompt.
+
+### Configuration
+
+```typescript
+import type { ContentTagConfig } from 'hazo_files';
+
+const contentTagConfig: ContentTagConfig = {
+  content_tag_set_by_llm: true,
+  content_tag_prompt_area: 'classification',
+  content_tag_prompt_key: 'classify_document',
+  content_tag_prompt_return_fieldname: 'document_type',
+  content_tag_prompt_variables: { language: 'en' }, // optional
+};
+```
+
+### Automatic Tagging at Upload
+
+Pass `contentTagConfig` to `UploadExtractService` constructor (default for all uploads) or per-upload via options:
+
+```typescript
+// Per-upload override
+const result = await uploadExtract.uploadWithExtract(buffer, 'file.pdf', {
+  basePath: '/docs',
+  contentTagConfig: {
+    content_tag_set_by_llm: true,
+    content_tag_prompt_area: 'classification',
+    content_tag_prompt_key: 'classify_document',
+    content_tag_prompt_return_fieldname: 'document_type',
+  },
+});
+console.log(result.contentTag); // e.g., 'invoice'
+```
+
+### Manual Tagging
+
+Tag existing files by their database record ID:
+
+```typescript
+const tagResult = await uploadExtract.tagFileContent('file-record-id');
+if (tagResult.success) {
+  console.log('Tagged as:', tagResult.data);
+}
+```
+
+### V3 Database Migration
+
+If you have an existing `hazo_files` table, run the V3 migration to add the `content_tag` column:
+
+```typescript
+import { migrateToV3, HAZO_FILES_MIGRATION_V3 } from 'hazo_files';
+
+// Using the migration helper
+await migrateToV3(
+  { run: (sql) => db.run(sql) },
+  'sqlite'
+);
+
+// Or run statements manually
+for (const stmt of HAZO_FILES_MIGRATION_V3.sqlite.alterStatements) {
+  try { await db.run(stmt); } catch { /* column exists */ }
+}
+```
+
+New tables created with `HAZO_FILES_TABLE_SCHEMA` already include the `content_tag` column.
 
 ## File Reference Tracking
 
@@ -1274,7 +1351,7 @@ for (const idx of HAZO_FILES_MIGRATION_V2.sqlite.indexes) {
 }
 ```
 
-New tables created with `HAZO_FILES_TABLE_SCHEMA` already include V2 columns.
+New tables created with `HAZO_FILES_TABLE_SCHEMA` already include V2 columns. For V3 content tagging migration, see [Content Tagging](#content-tagging) above.
 
 ### Reference Tracking Types
 
@@ -1333,6 +1410,13 @@ const hazoFiles = await createHazoFilesServer({
   },
   enableTracking: true,
   llmFactory: (provider) => createLLM({ provider }),
+  // Optional: enable automatic content tagging for all uploads
+  defaultContentTagConfig: {
+    content_tag_set_by_llm: true,
+    content_tag_prompt_area: 'classification',
+    content_tag_prompt_key: 'classify_document',
+    content_tag_prompt_return_fieldname: 'document_type',
+  },
 });
 
 // Access all services

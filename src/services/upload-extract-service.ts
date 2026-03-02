@@ -3,9 +3,9 @@
  * Combined workflow for uploading files with optional LLM extraction and naming convention application
  */
 
-import type { FileItem, FolderItem, OperationResult } from '../types';
+import type { FileItem, FolderItem, OperationResult, StorageProvider } from '../types';
 import type { NamingRuleSchema, NamingVariable, GeneratedNameResult } from '../types/naming';
-import type { ExtractionData } from '../types/metadata';
+import type { ExtractionData, ContentTagConfig } from '../types/metadata';
 import type { TrackedFileManager, TrackedUploadOptions } from './tracked-file-manager';
 import type { LLMExtractionService, ExtractionOptions, ExtractionResult } from './llm-extraction-service';
 import type { NamingConventionService } from './naming-convention-service';
@@ -62,6 +62,12 @@ export interface UploadExtractOptions extends TrackedUploadOptions {
    * Whether to create the folder path if it doesn't exist
    */
   createFolders?: boolean;
+
+  /**
+   * Content tag configuration for this upload.
+   * Overrides the default config set on the service.
+   */
+  contentTagConfig?: ContentTagConfig;
 }
 
 /**
@@ -82,6 +88,8 @@ export interface UploadExtractResult {
   generatedFolderPath?: string;
   /** Original file name before renaming */
   originalFileName?: string;
+  /** Content tag assigned by LLM (if content tagging was performed) */
+  contentTag?: string;
 }
 
 /**
@@ -142,15 +150,18 @@ export class UploadExtractService {
   private fileManager: TrackedFileManager;
   private namingService?: NamingConventionService;
   private extractionService?: LLMExtractionService;
+  private defaultContentTagConfig?: ContentTagConfig;
 
   constructor(
     fileManager: TrackedFileManager,
     namingService?: NamingConventionService,
-    extractionService?: LLMExtractionService
+    extractionService?: LLMExtractionService,
+    defaultContentTagConfig?: ContentTagConfig
   ) {
     this.fileManager = fileManager;
     this.namingService = namingService;
     this.extractionService = extractionService;
+    this.defaultContentTagConfig = defaultContentTagConfig;
   }
 
   /**
@@ -262,12 +273,15 @@ export class UploadExtractService {
       }
 
       // Step 7: Upload file
-      // When extraction is enabled, use awaitRecording to ensure the database record
-      // exists before we try to add extraction data in Step 8.
+      // When extraction or content tagging is enabled, use awaitRecording to ensure
+      // the database record exists before we try to add extraction data or content tag.
+      const effectiveContentTagConfig = options.contentTagConfig ?? this.defaultContentTagConfig;
+      const needsContentTagging = effectiveContentTagConfig?.content_tag_set_by_llm &&
+        this.extractionService && this.fileManager.isTrackingActive();
       const uploadResult = await this.fileManager.uploadFile(source, fullPath, {
         ...options,
         metadata,
-        awaitRecording: !!extractionData, // Await recording when extraction needs to be added
+        awaitRecording: !!extractionData || !!needsContentTagging,
       });
 
       if (!uploadResult.success) {
@@ -296,6 +310,17 @@ export class UploadExtractService {
         }
       }
 
+      // Step 9: Content tagging via LLM (if configured)
+      let contentTag: string | undefined;
+      if (needsContentTagging && effectiveContentTagConfig) {
+        contentTag = await this.performContentTagging(
+          source,
+          mimeType,
+          effectiveContentTagConfig,
+          fullPath
+        );
+      }
+
       return {
         success: true,
         file: uploadResult.data!,
@@ -303,6 +328,7 @@ export class UploadExtractService {
         generatedPath: fullPath,
         generatedFolderPath: generatedFolderPath || undefined,
         originalFileName,
+        contentTag,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -432,6 +458,105 @@ export class UploadExtractService {
   }
 
   /**
+   * Perform content tagging via LLM extraction.
+   * Calls the LLM with the configured prompt, extracts the specified field,
+   * and writes it to the content_tag column.
+   */
+  private async performContentTagging(
+    buffer: Buffer,
+    mimeType: string,
+    config: ContentTagConfig,
+    filePath: string
+  ): Promise<string | undefined> {
+    try {
+      if (!this.extractionService) return undefined;
+
+      const result = await this.extractionService.extract(buffer, mimeType, {
+        promptArea: config.content_tag_prompt_area,
+        promptKey: config.content_tag_prompt_key,
+        promptVariables: config.content_tag_prompt_variables,
+      });
+
+      if (!result.success || !result.data) return undefined;
+
+      const tagValue = result.data[config.content_tag_prompt_return_fieldname];
+      if (typeof tagValue !== 'string' || !tagValue) return undefined;
+
+      // Write content_tag to the database record
+      const metadataService = this.fileManager.getMetadataService();
+      if (metadataService) {
+        const storageType = this.fileManager.getProvider() || 'local';
+        const record = await metadataService.findByPath(filePath, storageType as StorageProvider);
+        if (record) {
+          await metadataService.updateFields(record.id, { content_tag: tagValue });
+        }
+      }
+
+      return tagValue;
+    } catch {
+      // Content tagging failure should not break the upload
+      return undefined;
+    }
+  }
+
+  /**
+   * Manually tag a file's content via LLM.
+   * Works with existing DB records, resolving the file path internally.
+   *
+   * @param fileId - Database record ID of the file
+   * @param config - Content tag config (falls back to default if not provided)
+   * @returns OperationResult with the tag value
+   */
+  async tagFileContent(
+    fileId: string,
+    config?: ContentTagConfig
+  ): Promise<OperationResult<string>> {
+    const effectiveConfig = config ?? this.defaultContentTagConfig;
+
+    if (!effectiveConfig || !effectiveConfig.content_tag_set_by_llm) {
+      return { success: false, error: 'Content tagging is not configured or disabled' };
+    }
+    if (!this.extractionService) {
+      return { success: false, error: 'Extraction service not available' };
+    }
+
+    const metadataService = this.fileManager.getMetadataService();
+    if (!metadataService) {
+      return { success: false, error: 'Metadata service not available (tracking not enabled)' };
+    }
+
+    const record = await metadataService.findById(fileId);
+    if (!record) {
+      return { success: false, error: `File record not found: ${fileId}` };
+    }
+
+    // Download the file content
+    const downloadResult = await this.fileManager.downloadFile(record.file_path);
+    if (!downloadResult.success || !downloadResult.data) {
+      return { success: false, error: `Failed to download file: ${downloadResult.error}` };
+    }
+
+    const buffer = Buffer.isBuffer(downloadResult.data)
+      ? downloadResult.data
+      : Buffer.from(downloadResult.data as string);
+
+    const mimeType = getMimeType(record.filename);
+
+    const tagValue = await this.performContentTagging(
+      buffer,
+      mimeType,
+      effectiveConfig,
+      record.file_path
+    );
+
+    if (!tagValue) {
+      return { success: false, error: 'Content tagging did not produce a result' };
+    }
+
+    return { success: true, data: tagValue };
+  }
+
+  /**
    * Get the file manager
    */
   getFileManager(): TrackedFileManager {
@@ -459,7 +584,8 @@ export class UploadExtractService {
 export function createUploadExtractService(
   fileManager: TrackedFileManager,
   namingService?: NamingConventionService,
-  extractionService?: LLMExtractionService
+  extractionService?: LLMExtractionService,
+  defaultContentTagConfig?: ContentTagConfig
 ): UploadExtractService {
-  return new UploadExtractService(fileManager, namingService, extractionService);
+  return new UploadExtractService(fileManager, namingService, extractionService, defaultContentTagConfig);
 }

@@ -203,6 +203,7 @@ export type {
   FileDataStructure,
   AddExtractionOptions,
   RemoveExtractionOptions,
+  ContentTagConfig,
 } from './metadata';
 
 // Naming convention types

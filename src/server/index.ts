@@ -84,6 +84,8 @@ export {
   getNamingSchemaForTable,
   HAZO_FILES_MIGRATION_V2,
   getMigrationForTable,
+  HAZO_FILES_MIGRATION_V3,
+  getMigrationV3ForTable,
 } from '../schema';
 
 export type {
@@ -93,6 +95,7 @@ export type {
   HazoFilesColumnDefinitions,
   HazoFilesNamingColumnDefinitions,
   HazoFilesMigrationV2,
+  HazoFilesMigrationV3,
   MigrationSchemaDefinition,
 } from '../schema';
 
@@ -100,6 +103,7 @@ export type {
 export {
   migrateToV2,
   backfillV2Defaults,
+  migrateToV3,
 } from '../migrations';
 
 export type { MigrationExecutor } from '../migrations';
@@ -291,6 +295,8 @@ export type {
   FileDataStructure,
   AddExtractionOptions,
   RemoveExtractionOptions,
+  // Content tagging types
+  ContentTagConfig,
   // Naming convention types
   NamingConventionType,
   NamingConventionRecord,

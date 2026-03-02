@@ -53,6 +53,8 @@ export interface FileMetadataInput {
   uploaded_by?: string;
   /** Original filename at upload time (V2) */
   original_filename?: string;
+  /** Content tag classifying the document type (V3) */
+  content_tag?: string;
 }
 
 /**
@@ -132,4 +134,22 @@ export interface RemoveExtractionOptions {
   recalculateMerged?: boolean;
   /** Merge strategy to use when recalculating (default: 'shallow') */
   mergeStrategy?: 'shallow' | 'deep';
+}
+
+/**
+ * Configuration for LLM-based content tagging.
+ * When enabled, calls the LLM with a specific prompt and writes
+ * the extracted field value to the content_tag column.
+ */
+export interface ContentTagConfig {
+  /** Whether to enable LLM-based content tagging */
+  content_tag_set_by_llm: boolean;
+  /** Prompt area for hazo_llm_api lookup */
+  content_tag_prompt_area: string;
+  /** Prompt key within the area */
+  content_tag_prompt_key: string;
+  /** Optional variables to substitute in the prompt template */
+  content_tag_prompt_variables?: Record<string, string>;
+  /** Field name to extract from the LLM response as the content tag */
+  content_tag_prompt_return_fieldname: string;
 }

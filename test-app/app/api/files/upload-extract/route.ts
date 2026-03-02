@@ -11,7 +11,7 @@ import {
   UploadExtractService,
   LLMExtractionService,
 } from 'hazo_files';
-import type { TrackedFileManager, HazoLLMInstance, LLMFactory } from 'hazo_files';
+import type { TrackedFileManager, HazoLLMInstance, LLMFactory, ContentTagConfig } from 'hazo_files';
 import {
   initialize_llm_api,
   hazo_llm_document_text,
@@ -171,6 +171,12 @@ export async function POST(request: NextRequest) {
     const createFolders = formData.get('createFolders') !== 'false';
     const provider = (formData.get('provider') as 'local' | 'google_drive') || 'local';
 
+    // Content tag config
+    const contentTagEnabled = formData.get('contentTagEnabled') === 'true';
+    const contentTagPromptArea = formData.get('contentTagPromptArea') as string | null;
+    const contentTagPromptKey = formData.get('contentTagPromptKey') as string | null;
+    const contentTagReturnFieldname = formData.get('contentTagReturnFieldname') as string | null;
+
     // Validate required fields
     if (!file) {
       return NextResponse.json(
@@ -216,9 +222,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create extraction service if extraction is requested
+    // Create extraction service if extraction or content tagging is requested
     let extractionService: LLMExtractionService | undefined;
-    if (extract && promptArea && promptKey) {
+    const needsLLM = (extract && promptArea && promptKey) || contentTagEnabled;
+    if (needsLLM) {
       try {
         await ensureLLMInitialized();
         const promptsCrud = getPromptsCrudService();
@@ -230,11 +237,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Build content tag config if enabled
+    let contentTagConfig: ContentTagConfig | undefined;
+    if (contentTagEnabled && contentTagPromptArea && contentTagPromptKey && contentTagReturnFieldname) {
+      contentTagConfig = {
+        content_tag_set_by_llm: true,
+        content_tag_prompt_area: contentTagPromptArea,
+        content_tag_prompt_key: contentTagPromptKey,
+        content_tag_prompt_return_fieldname: contentTagReturnFieldname,
+      };
+    }
+
     // Create upload-extract service
     const uploadExtractService = new UploadExtractService(
       fileManager,
       namingService,
-      extractionService
+      extractionService,
+      contentTagConfig
     );
 
     // Convert File to Buffer
@@ -280,6 +299,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ...result,
       fileId,
+      contentTag: result.contentTag,
     });
   } catch (error) {
     console.error('[api/files/upload-extract] Error:', error);

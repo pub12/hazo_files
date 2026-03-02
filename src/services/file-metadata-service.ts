@@ -188,6 +188,7 @@ export class FileMetadataService {
       if (input.scope_id !== undefined) record.scope_id = input.scope_id;
       if (input.uploaded_by !== undefined) record.uploaded_by = input.uploaded_by;
       if (input.original_filename !== undefined) record.original_filename = input.original_filename;
+      if (input.content_tag !== undefined) record.content_tag = input.content_tag;
 
       const results = await this.crud.insert(record as Partial<FileMetadataRecord>);
       this.logger?.debug?.('Recorded file upload', { path: input.file_path });
@@ -895,7 +896,7 @@ export class FileMetadataService {
    */
   async updateFields(
     fileId: string,
-    fields: Partial<Pick<FileMetadataRecordV2, 'scope_id' | 'uploaded_by' | 'original_filename' | 'storage_verified_at' | 'status'>>
+    fields: Partial<Pick<FileMetadataRecordV2, 'scope_id' | 'uploaded_by' | 'original_filename' | 'storage_verified_at' | 'status' | 'content_tag'>>
   ): Promise<boolean> {
     try {
       await this.crud.updateById(fileId, {

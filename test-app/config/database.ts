@@ -33,12 +33,24 @@ CREATE TABLE IF NOT EXISTS hazo_files (
   storage_type TEXT NOT NULL CHECK(storage_type IN ('local', 'google_drive')),
   file_hash TEXT,
   file_size INTEGER,
-  file_changed_at TEXT
+  file_changed_at TEXT,
+  file_refs TEXT DEFAULT '[]',
+  ref_count INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'active',
+  scope_id TEXT,
+  uploaded_by TEXT,
+  storage_verified_at TEXT,
+  deleted_at TEXT,
+  original_filename TEXT,
+  content_tag TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_hazo_files_path ON hazo_files(file_path, storage_type);
 CREATE INDEX IF NOT EXISTS idx_hazo_files_storage ON hazo_files(storage_type);
 CREATE INDEX IF NOT EXISTS idx_hazo_files_hash ON hazo_files(file_hash);
+CREATE INDEX IF NOT EXISTS idx_hazo_files_status ON hazo_files(status);
+CREATE INDEX IF NOT EXISTS idx_hazo_files_scope ON hazo_files(scope_id);
+CREATE INDEX IF NOT EXISTS idx_hazo_files_content_tag ON hazo_files(content_tag);
 `;
 
 /**
@@ -148,6 +160,17 @@ async function initializeSchema(sqliteAdapter: SqliteAdapter): Promise<void> {
     { table: 'hazo_files', column: 'file_hash', type: 'TEXT' },
     { table: 'hazo_files', column: 'file_size', type: 'INTEGER' },
     { table: 'hazo_files', column: 'file_changed_at', type: 'TEXT' },
+    // V2: Reference tracking columns
+    { table: 'hazo_files', column: 'file_refs', type: "TEXT DEFAULT '[]'" },
+    { table: 'hazo_files', column: 'ref_count', type: 'INTEGER DEFAULT 0' },
+    { table: 'hazo_files', column: 'status', type: "TEXT DEFAULT 'active'" },
+    { table: 'hazo_files', column: 'scope_id', type: 'TEXT' },
+    { table: 'hazo_files', column: 'uploaded_by', type: 'TEXT' },
+    { table: 'hazo_files', column: 'storage_verified_at', type: 'TEXT' },
+    { table: 'hazo_files', column: 'deleted_at', type: 'TEXT' },
+    { table: 'hazo_files', column: 'original_filename', type: 'TEXT' },
+    // V3: Content tagging
+    { table: 'hazo_files', column: 'content_tag', type: 'TEXT' },
   ];
 
   for (const { table, column, type } of columnsToAdd) {

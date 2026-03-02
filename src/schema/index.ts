@@ -64,6 +64,8 @@ export interface HazoFilesColumnDefinitions {
   deleted_at: 'TEXT' | 'TIMESTAMP';
   /** Original filename at upload time (V2) */
   original_filename: 'TEXT';
+  /** Content tag classifying the document type (V3) */
+  content_tag: 'TEXT';
 }
 
 /**
@@ -144,7 +146,8 @@ export const HAZO_FILES_TABLE_SCHEMA: HazoFilesTableSchema = {
   uploaded_by TEXT,
   storage_verified_at TEXT,
   deleted_at TEXT,
-  original_filename TEXT
+  original_filename TEXT,
+  content_tag TEXT
 )`,
     indexes: [
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_path ON hazo_files (file_path)',
@@ -155,6 +158,7 @@ export const HAZO_FILES_TABLE_SCHEMA: HazoFilesTableSchema = {
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_scope ON hazo_files (scope_id)',
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_ref_count ON hazo_files (ref_count)',
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_deleted ON hazo_files (deleted_at)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_content_tag ON hazo_files (content_tag)',
     ],
   },
 
@@ -178,7 +182,8 @@ export const HAZO_FILES_TABLE_SCHEMA: HazoFilesTableSchema = {
   uploaded_by UUID,
   storage_verified_at TIMESTAMP WITH TIME ZONE,
   deleted_at TIMESTAMP WITH TIME ZONE,
-  original_filename TEXT
+  original_filename TEXT,
+  content_tag TEXT
 )`,
     indexes: [
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_path ON hazo_files (file_path)',
@@ -189,6 +194,7 @@ export const HAZO_FILES_TABLE_SCHEMA: HazoFilesTableSchema = {
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_scope ON hazo_files (scope_id)',
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_ref_count ON hazo_files (ref_count)',
       'CREATE INDEX IF NOT EXISTS idx_hazo_files_deleted ON hazo_files (deleted_at)',
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_content_tag ON hazo_files (content_tag)',
     ],
   },
 
@@ -212,6 +218,7 @@ export const HAZO_FILES_TABLE_SCHEMA: HazoFilesTableSchema = {
     'storage_verified_at',
     'deleted_at',
     'original_filename',
+    'content_tag',
   ] as const,
 };
 
@@ -508,5 +515,94 @@ export function getNamingSchemaForTable(
     indexes: schema.indexes.map((idx) =>
       idx.replace(new RegExp(defaultName, 'g'), tableName)
     ),
+  };
+}
+
+// ============================================
+// V3 Migration (Content Tagging)
+// ============================================
+
+/**
+ * Migration schema for adding V3 content tagging column to existing tables.
+ * Idempotent — safe to run multiple times.
+ *
+ * @example
+ * ```typescript
+ * import { HAZO_FILES_MIGRATION_V3 } from 'hazo_files';
+ *
+ * // SQLite
+ * for (const stmt of HAZO_FILES_MIGRATION_V3.sqlite.alterStatements) {
+ *   try { await db.run(stmt); } catch { /* column already exists *\/ }
+ * }
+ * for (const idx of HAZO_FILES_MIGRATION_V3.sqlite.indexes) {
+ *   await db.run(idx);
+ * }
+ *
+ * // PostgreSQL
+ * for (const stmt of HAZO_FILES_MIGRATION_V3.postgres.alterStatements) {
+ *   await client.query(stmt);
+ * }
+ * for (const idx of HAZO_FILES_MIGRATION_V3.postgres.indexes) {
+ *   await client.query(idx);
+ * }
+ * ```
+ */
+export interface HazoFilesMigrationV3 {
+  /** Default table name */
+  tableName: string;
+  /** SQLite migration statements */
+  sqlite: MigrationSchemaDefinition;
+  /** PostgreSQL migration statements */
+  postgres: MigrationSchemaDefinition;
+  /** New column names added in V3 */
+  newColumns: readonly string[];
+}
+
+export const HAZO_FILES_MIGRATION_V3: HazoFilesMigrationV3 = {
+  tableName: HAZO_FILES_DEFAULT_TABLE_NAME,
+
+  sqlite: {
+    alterStatements: [
+      'ALTER TABLE hazo_files ADD COLUMN content_tag TEXT',
+    ],
+    indexes: [
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_content_tag ON hazo_files (content_tag)',
+    ],
+    backfill: '', // No backfill needed — column is nullable, defaults to NULL
+  },
+
+  postgres: {
+    alterStatements: [
+      'ALTER TABLE hazo_files ADD COLUMN IF NOT EXISTS content_tag TEXT',
+    ],
+    indexes: [
+      'CREATE INDEX IF NOT EXISTS idx_hazo_files_content_tag ON hazo_files (content_tag)',
+    ],
+    backfill: '', // No backfill needed — column is nullable, defaults to NULL
+  },
+
+  newColumns: [
+    'content_tag',
+  ] as const,
+};
+
+/**
+ * Get V3 migration statements for a custom table name
+ */
+export function getMigrationV3ForTable(
+  tableName: string,
+  dbType: 'sqlite' | 'postgres'
+): MigrationSchemaDefinition {
+  const migration = HAZO_FILES_MIGRATION_V3[dbType];
+  const defaultName = HAZO_FILES_MIGRATION_V3.tableName;
+
+  return {
+    alterStatements: migration.alterStatements.map((stmt) =>
+      stmt.replace(new RegExp(defaultName, 'g'), tableName)
+    ),
+    indexes: migration.indexes.map((idx) =>
+      idx.replace(new RegExp(defaultName, 'g'), tableName)
+    ),
+    backfill: migration.backfill,
   };
 }

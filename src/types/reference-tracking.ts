@@ -63,6 +63,8 @@ export interface FileMetadataRecordV2 extends FileMetadataRecord {
   storage_verified_at?: string | null;
   /** ISO timestamp when file was soft-deleted */
   deleted_at?: string | null;
+  /** Content tag classifying the document type (V3) */
+  content_tag?: string | null;
 }
 
 // ============================================

@@ -9,7 +9,7 @@
  * - hazo_llm_api: LLM extraction
  */
 
-import type { HazoFilesConfig, FileMetadataRecord } from '../types';
+import type { HazoFilesConfig, FileMetadataRecord, ContentTagConfig } from '../types';
 import type { NamingConventionRecord } from '../types/naming-convention';
 import {
   TrackedFileManager,
@@ -93,6 +93,12 @@ export interface HazoFilesServerOptions {
    * Track download/access operations
    */
   trackDownloads?: boolean;
+
+  /**
+   * Default content tag configuration for LLM-based content classification.
+   * When set, uploads can automatically classify document content.
+   */
+  defaultContentTagConfig?: ContentTagConfig;
 }
 
 /**
@@ -183,6 +189,7 @@ export async function createHazoFilesServer(
     namingTableName = 'hazo_files_naming',
     enableTracking = !!crudService,
     trackDownloads = true,
+    defaultContentTagConfig,
   } = options;
 
   // Build file manager options
@@ -223,7 +230,8 @@ export async function createHazoFilesServer(
   const uploadExtractService = new UploadExtractService(
     fileManager,
     namingService || undefined,
-    extractionService || undefined
+    extractionService || undefined,
+    defaultContentTagConfig
   );
 
   return {
