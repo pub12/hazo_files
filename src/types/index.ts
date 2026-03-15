@@ -3,7 +3,7 @@
  */
 
 /** Supported storage provider types */
-export type StorageProvider = 'local' | 'google_drive';
+export type StorageProvider = 'local' | 'google_drive' | 'dropbox';
 
 /** File item representing a file in storage */
 export interface FileItem {
@@ -35,11 +35,22 @@ export interface FolderItem {
 /** Union type for file system items */
 export type FileSystemItem = FileItem | FolderItem;
 
+/** Dropbox specific configuration */
+export interface DropboxConfig {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  refreshToken?: string;
+  accessToken?: string;
+  rootPath?: string;
+}
+
 /** Configuration for the file manager */
 export interface HazoFilesConfig {
   provider: StorageProvider;
   local?: LocalStorageConfig;
   google_drive?: GoogleDriveConfig;
+  dropbox?: DropboxConfig;
 }
 
 /** Local storage specific configuration */

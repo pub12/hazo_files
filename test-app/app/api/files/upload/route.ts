@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const fm = await getFileManager(provider as 'local' | 'google_drive');
+    const fm = await getFileManager(provider as 'local' | 'google_drive' | 'dropbox');
 
     // Convert File to Buffer
     const arrayBuffer = await file.arrayBuffer();

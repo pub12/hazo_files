@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   FolderOpen,
   Cloud,
+  Inbox,
   Settings,
   HardDrive,
   Home,
@@ -50,6 +51,11 @@ const menuItems = [
     title: 'Google Drive',
     icon: Cloud,
     href: '/google-drive',
+  },
+  {
+    title: 'Dropbox',
+    icon: Inbox,
+    href: '/dropbox',
   },
   {
     title: 'Naming Config',

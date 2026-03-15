@@ -18,7 +18,7 @@ import {
 } from '../services/tracked-file-manager';
 import { FileMetadataService, CrudServiceLike } from '../services/file-metadata-service';
 import { NamingConventionService } from '../services/naming-convention-service';
-import { LLMExtractionService, LLMFactory, LLMProvider } from '../services/llm-extraction-service';
+import { LLMExtractionService, LLMFactoryConfig, LLMProvider } from '../services/llm-extraction-service';
 import { UploadExtractService } from '../services/upload-extract-service';
 
 /**
@@ -64,10 +64,10 @@ export interface HazoFilesServerOptions {
   enableExtraction?: boolean;
 
   /**
-   * Factory function for creating LLM instances
+   * LLM factory configuration for creating LLM instances
    * Required if enableExtraction is true
    */
-  llmFactory?: LLMFactory;
+  llmFactory?: LLMFactoryConfig;
 
   /**
    * Default LLM provider for extraction
@@ -119,6 +119,9 @@ export interface HazoFilesServerInstance {
 
   /** Combined upload + extract service */
   uploadExtractService: UploadExtractService;
+
+  /** Invalidate hazo_llm_api prompt cache (if LLMFactoryConfig with invalidateCache was provided) */
+  invalidatePromptCache?: (area?: string, key?: string) => void;
 }
 
 /**
@@ -158,7 +161,7 @@ export interface HazoFilesServerInstance {
  *   config: { provider: 'local', local: { basePath: './files' } },
  *   enableTracking: true,
  *   enableExtraction: true,
- *   llmFactory: (provider) => createLLM({ provider })
+ *   llmFactory: { create: (provider) => createLLM({ provider }) }
  * });
  *
  * // Upload with extraction and naming convention
@@ -234,12 +237,18 @@ export async function createHazoFilesServer(
     defaultContentTagConfig
   );
 
+  // Wire cache invalidation passthrough
+  const invalidatePromptCache = extractionService
+    ? (area?: string, key?: string) => extractionService.invalidatePromptCache(area, key)
+    : undefined;
+
   return {
     fileManager,
     metadataService,
     namingService,
     extractionService,
     uploadExtractService,
+    invalidatePromptCache,
   };
 }
 

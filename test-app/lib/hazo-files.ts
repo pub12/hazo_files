@@ -8,7 +8,7 @@ import type { FileBrowserAPI } from 'hazo_files/ui';
 /**
  * Create a client-side API adapter that calls the server endpoints
  */
-export function createFileBrowserAPI(provider: 'local' | 'google_drive' = 'local'): FileBrowserAPI {
+export function createFileBrowserAPI(provider: 'local' | 'google_drive' | 'dropbox' = 'local'): FileBrowserAPI {
   const baseUrl = '/api/files';
 
   return {

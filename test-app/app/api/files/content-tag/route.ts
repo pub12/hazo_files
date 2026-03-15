@@ -11,7 +11,7 @@ import {
   UploadExtractService,
   LLMExtractionService,
 } from 'hazo_files';
-import type { TrackedFileManager, HazoLLMInstance, LLMFactory, ContentTagConfig } from 'hazo_files';
+import type { TrackedFileManager, HazoLLMInstance, LLMFactoryConfig, ContentTagConfig } from 'hazo_files';
 import {
   initialize_llm_api,
   hazo_llm_document_text,
@@ -51,8 +51,8 @@ async function ensureLLMInitialized() {
 /**
  * Create an LLM instance adapter (same pattern as upload-extract route)
  */
-function createLLMFactory(promptsCrud: CrudService): LLMFactory {
-  return (): HazoLLMInstance => {
+function createLLMFactory(promptsCrud: CrudService): LLMFactoryConfig {
+  const create = (): HazoLLMInstance => {
     return {
       async extract(
         content: string | Buffer,
@@ -126,6 +126,7 @@ function createLLMFactory(promptsCrud: CrudService): LLMFactory {
       },
     };
   };
+  return { create };
 }
 
 /**

@@ -6,6 +6,7 @@
 import type { StorageModule, StorageProvider, HazoFilesConfig } from '../types';
 import { createLocalModule } from './local';
 import { createGoogleDriveModule } from './google-drive';
+import { createDropboxModule } from './dropbox';
 import { ConfigurationError } from '../common/errors';
 
 /**
@@ -19,6 +20,7 @@ type ModuleFactory = () => StorageModule;
 const moduleRegistry: Record<StorageProvider, ModuleFactory> = {
   local: createLocalModule,
   google_drive: createGoogleDriveModule,
+  dropbox: createDropboxModule,
 };
 
 /**
@@ -66,3 +68,5 @@ export function registerModule(provider: StorageProvider, factory: ModuleFactory
 export { LocalStorageModule, createLocalModule } from './local';
 export { GoogleDriveModule, createGoogleDriveModule, GoogleDriveAuth, createGoogleDriveAuth } from './google-drive';
 export type { TokenData, AuthCallbacks, GoogleAuthConfig } from './google-drive';
+export { DropboxModule, createDropboxModule, DropboxAuth, createDropboxAuth } from './dropbox';
+export type { DropboxTokenData, DropboxAuthCallbacks, DropboxAuthConfig } from './dropbox';

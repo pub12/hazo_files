@@ -101,6 +101,14 @@ export interface HazoLLMInstance {
 export type LLMFactory = (provider: LLMProvider, options?: Record<string, unknown>) => HazoLLMInstance | Promise<HazoLLMInstance>;
 
 /**
+ * Extended LLM factory configuration with optional cache management
+ */
+export interface LLMFactoryConfig {
+  create: LLMFactory;
+  invalidateCache?: (area?: string, key?: string) => void;
+}
+
+/**
  * LLM Extraction Service
  *
  * Provides document and image extraction using LLMs.
@@ -141,10 +149,20 @@ export type LLMFactory = (provider: LLMProvider, options?: Record<string, unknow
 export class LLMExtractionService {
   private llmFactory: LLMFactory;
   private defaultProvider: LLMProvider;
+  private cacheInvalidator?: (area?: string, key?: string) => void;
 
-  constructor(llmFactory: LLMFactory, defaultProvider: LLMProvider = 'gemini') {
-    this.llmFactory = llmFactory;
+  constructor(factoryConfig: LLMFactoryConfig, defaultProvider: LLMProvider = 'gemini') {
+    this.llmFactory = factoryConfig.create;
+    this.cacheInvalidator = factoryConfig.invalidateCache;
     this.defaultProvider = defaultProvider;
+  }
+
+  /**
+   * Invalidate the LLM prompt cache
+   * Passthrough to hazo_llm_api's invalidate_prompt_cache when configured
+   */
+  invalidatePromptCache(area?: string, key?: string): void {
+    this.cacheInvalidator?.(area, key);
   }
 
   /**
@@ -314,12 +332,12 @@ export class LLMExtractionService {
 /**
  * Create an LLMExtractionService instance
  *
- * @param llmFactory - Factory function for creating LLM instances
+ * @param factoryConfig - LLM factory configuration with create function and optional cache invalidation
  * @param defaultProvider - Default LLM provider (default: 'gemini')
  */
 export function createLLMExtractionService(
-  llmFactory: LLMFactory,
+  factoryConfig: LLMFactoryConfig,
   defaultProvider?: LLMProvider
 ): LLMExtractionService {
-  return new LLMExtractionService(llmFactory, defaultProvider);
+  return new LLMExtractionService(factoryConfig, defaultProvider);
 }

@@ -69,6 +69,10 @@ export {
   createGoogleDriveModule,
   GoogleDriveAuth,
   createGoogleDriveAuth,
+  DropboxModule,
+  createDropboxModule,
+  DropboxAuth,
+  createDropboxAuth,
 } from './modules';
 
 // Common utilities
@@ -194,6 +198,7 @@ export type {
   HazoFilesConfig,
   LocalStorageConfig,
   GoogleDriveConfig,
+  DropboxConfig,
   OperationResult,
   ProgressCallback,
   UploadOptions,
@@ -258,6 +263,7 @@ export type {
   NamingConventionServiceOptions,
   LLMProvider,
   LLMFactory,
+  LLMFactoryConfig,
   HazoLLMInstance,
   ExtractionOptions,
   ExtractionResult,
@@ -265,7 +271,7 @@ export type {
   UploadExtractResult,
   CreateFolderOptions,
 } from './services';
-export type { TokenData, AuthCallbacks, GoogleAuthConfig } from './modules';
+export type { TokenData, AuthCallbacks, GoogleAuthConfig, DropboxTokenData, DropboxAuthCallbacks, DropboxAuthConfig } from './modules';
 export type {
   HazoFilesTableSchema,
   HazoFilesNamingTableSchema,

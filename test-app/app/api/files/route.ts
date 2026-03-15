@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get('action');
   const path = searchParams.get('path') || '/';
-  const provider = (searchParams.get('provider') || 'local') as 'local' | 'google_drive';
+  const provider = (searchParams.get('provider') || 'local') as 'local' | 'google_drive' | 'dropbox';
   const depth = parseInt(searchParams.get('depth') || '3', 10);
 
   try {

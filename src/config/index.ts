@@ -6,7 +6,7 @@
 import * as ini from 'ini';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { HazoFilesConfig, StorageProvider, LocalStorageConfig, GoogleDriveConfig } from '../types';
+import type { HazoFilesConfig, StorageProvider, LocalStorageConfig, GoogleDriveConfig, DropboxConfig } from '../types';
 
 const DEFAULT_CONFIG_FILENAME = 'hazo_files_config.ini';
 
@@ -44,6 +44,18 @@ export function parseConfig(configContent: string): HazoFilesConfig {
       refreshToken: parsed.google_drive.refresh_token || process.env.HAZO_GOOGLE_DRIVE_REFRESH_TOKEN,
       accessToken: parsed.google_drive.access_token || process.env.HAZO_GOOGLE_DRIVE_ACCESS_TOKEN,
       rootFolderId: parsed.google_drive.root_folder_id || process.env.HAZO_GOOGLE_DRIVE_ROOT_FOLDER_ID,
+    };
+  }
+
+  // Parse Dropbox config
+  if (parsed.dropbox) {
+    config.dropbox = {
+      clientId: parsed.dropbox.client_id || process.env.HAZO_DROPBOX_CLIENT_ID || '',
+      clientSecret: parsed.dropbox.client_secret || process.env.HAZO_DROPBOX_CLIENT_SECRET || '',
+      redirectUri: parsed.dropbox.redirect_uri || process.env.HAZO_DROPBOX_REDIRECT_URI || '',
+      refreshToken: parsed.dropbox.refresh_token || process.env.HAZO_DROPBOX_REFRESH_TOKEN,
+      accessToken: parsed.dropbox.access_token || process.env.HAZO_DROPBOX_ACCESS_TOKEN,
+      rootPath: parsed.dropbox.root_path || process.env.HAZO_DROPBOX_ROOT_PATH,
     };
   }
 
@@ -125,6 +137,18 @@ refresh_token =
 access_token =
 ; Optional: Root folder ID to use as base (empty = root of Drive)
 root_folder_id =
+
+[dropbox]
+; Dropbox OAuth credentials
+; These can also be set via environment variables:
+; HAZO_DROPBOX_CLIENT_ID, HAZO_DROPBOX_CLIENT_SECRET, etc.
+client_id =
+client_secret =
+redirect_uri = http://localhost:3000/api/auth/dropbox/callback
+refresh_token =
+access_token =
+; Optional: Root path to use as base (empty = root of Dropbox)
+root_path =
 `;
 }
 
@@ -159,8 +183,19 @@ export async function saveConfig(config: HazoFilesConfig, configPath?: string): 
     };
   }
 
+  if (config.dropbox) {
+    iniConfig.dropbox = {
+      client_id: config.dropbox.clientId || '',
+      client_secret: config.dropbox.clientSecret || '',
+      redirect_uri: config.dropbox.redirectUri || '',
+      refresh_token: config.dropbox.refreshToken || '',
+      access_token: config.dropbox.accessToken || '',
+      root_path: config.dropbox.rootPath || '',
+    };
+  }
+
   const content = ini.stringify(iniConfig);
   await fs.promises.writeFile(resolvedPath, content, 'utf-8');
 }
 
-export type { HazoFilesConfig, LocalStorageConfig, GoogleDriveConfig };
+export type { HazoFilesConfig, LocalStorageConfig, GoogleDriveConfig, DropboxConfig };

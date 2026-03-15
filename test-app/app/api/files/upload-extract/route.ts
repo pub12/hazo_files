@@ -11,7 +11,7 @@ import {
   UploadExtractService,
   LLMExtractionService,
 } from 'hazo_files';
-import type { TrackedFileManager, HazoLLMInstance, LLMFactory, ContentTagConfig } from 'hazo_files';
+import type { TrackedFileManager, HazoLLMInstance, LLMFactoryConfig, ContentTagConfig } from 'hazo_files';
 import {
   initialize_llm_api,
   hazo_llm_document_text,
@@ -56,8 +56,8 @@ async function ensureLLMInitialized() {
  * Create an LLM instance adapter for hazo_files LLMExtractionService
  * This bridges hazo_llm_api with hazo_files extraction service
  */
-function createLLMFactory(promptsCrud: CrudService): LLMFactory {
-  return (): HazoLLMInstance => {
+function createLLMFactory(promptsCrud: CrudService): LLMFactoryConfig {
+  const create = (): HazoLLMInstance => {
     return {
       async extract(
         content: string | Buffer,
@@ -150,6 +150,7 @@ function createLLMFactory(promptsCrud: CrudService): LLMFactory {
       },
     };
   };
+  return { create };
 }
 
 /**
@@ -169,7 +170,7 @@ export async function POST(request: NextRequest) {
     const promptArea = formData.get('promptArea') as string | null;
     const promptKey = formData.get('promptKey') as string | null;
     const createFolders = formData.get('createFolders') !== 'false';
-    const provider = (formData.get('provider') as 'local' | 'google_drive') || 'local';
+    const provider = (formData.get('provider') as 'local' | 'google_drive' | 'dropbox') || 'local';
 
     // Content tag config
     const contentTagEnabled = formData.get('contentTagEnabled') === 'true';

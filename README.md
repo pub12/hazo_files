@@ -7,7 +7,7 @@ A powerful, modular file management package for Node.js and React applications w
 
 ## Features
 
-- **Multiple Storage Providers**: Local filesystem and Google Drive support out of the box
+- **Multiple Storage Providers**: Local filesystem, Google Drive, and Dropbox support out of the box
 - **Modular Architecture**: Easily add custom storage providers
 - **Unified API**: Single consistent interface across all storage providers
 - **React UI Components**: Drop-in FileBrowser component with folder tree, file list, and preview
@@ -21,7 +21,8 @@ A powerful, modular file management package for Node.js and React applications w
 - **Content Tagging**: Optional LLM-based content classification at upload time or on-demand via `content_tag` field
 - **Schema Migrations**: Built-in V2/V3 migration utilities for adding reference tracking and content tagging to existing databases
 - **TypeScript**: Full type safety and IntelliSense support
-- **OAuth Integration**: Built-in Google Drive OAuth authentication
+- **OAuth Integration**: Built-in Google Drive and Dropbox OAuth authentication
+- **Prompt Cache Invalidation**: Passthrough for hazo_llm_api prompt cache management via server instance
 - **Progress Tracking**: Upload/download progress callbacks
 - **File Validation**: Extension filtering and file size limits
 - **Error Handling**: Comprehensive error types and handling
@@ -1173,7 +1174,10 @@ const folderResult = await uploadExtract.createFolderFromConvention(
 ```typescript
 import { LLMExtractionService } from 'hazo_files';
 
-const extractionService = new LLMExtractionService(llmFactory, 'gemini');
+const extractionService = new LLMExtractionService({
+  create: llmFactory,
+  invalidateCache: (area, key) => invalidate_prompt_cache(area, key), // optional
+}, 'gemini');
 
 // Extract from document
 const result = await extractionService.extractFromDocument(
@@ -1409,7 +1413,10 @@ const hazoFiles = await createHazoFilesServer({
     local: { basePath: './storage' },
   },
   enableTracking: true,
-  llmFactory: (provider) => createLLM({ provider }),
+  llmFactory: {
+    create: (provider) => createLLM({ provider }),
+    invalidateCache: (area, key) => invalidate_prompt_cache(area, key), // optional
+  },
   // Optional: enable automatic content tagging for all uploads
   defaultContentTagConfig: {
     content_tag_set_by_llm: true,
@@ -1420,7 +1427,10 @@ const hazoFiles = await createHazoFilesServer({
 });
 
 // Access all services
-const { fileManager, metadataService, namingService, extractionService, uploadExtractService } = hazoFiles;
+const { fileManager, metadataService, namingService, extractionService, uploadExtractService, invalidatePromptCache } = hazoFiles;
+
+// Invalidate prompt cache without importing hazo_llm_api directly
+invalidatePromptCache?.('classification', 'classify_document');
 ```
 
 ## API Reference

@@ -6,6 +6,7 @@
 import { FileManager, FileManagerOptions } from './file-manager';
 import { FileMetadataService, CrudServiceLike } from './file-metadata-service';
 import type {
+  StorageProvider,
   FileItem,
   FolderItem,
   FileSystemItem,
@@ -87,7 +88,7 @@ export class TrackedFileManager extends FileManager {
   /**
    * Get the current storage provider type
    */
-  private getStorageType(): 'local' | 'google_drive' {
+  private getStorageType(): StorageProvider {
     return this.getProvider() || 'local';
   }
 

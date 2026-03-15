@@ -44,6 +44,7 @@ export {
 export type {
   LLMProvider,
   LLMFactory,
+  LLMFactoryConfig,
   HazoLLMInstance,
   ExtractionOptions,
   ExtractionResult,
